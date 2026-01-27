@@ -1,0 +1,6 @@
+node_modules
+logs
+errors
+.env
+bun.lock
+package-lock.json
