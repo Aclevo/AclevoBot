@@ -8,16 +8,16 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const meta = () => {
   return (
     new SlashCommandBuilder()
-      .setName("kick")
-      .setDescription("Kick someone from the server")
+      .setName("ban")
+      .setDescription("Ban someone from the server")
       .addUserOption((option) =>
         option
           .setName("user")
-          .setDescription("Member to kick")
+          .setDescription("Member to ban")
           .setRequired(true),
       )
       // Only users with Kick Members permission can use this command
-      .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
+      .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
   );
 };
 
@@ -43,7 +43,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.error} I don't have permission to kick members`,
+          title: `${bot.config.emojis.error} I don't have permission to ban members`,
           color: bot.config.colors.red,
         },
       ],
@@ -56,7 +56,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.warning} I cannot kick this user`,
+          title: `${bot.config.emojis.warning} I cannot ban this user`,
           color: bot.config.colors.yellow,
           description:
             "The user may have a higher role or be the server owner.",
@@ -67,13 +67,13 @@ const execute = async (bot, interaction) => {
   }
 
   try {
-    await member.kick({ reason: `Kicked by ${interaction.user.tag}` });
+    await member.kick({ reason: `Banned by ${interaction.user.tag}` });
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.success} Kicked`,
+          title: `${bot.config.emojis.success} Banned`,
           color: bot.config.colors.green,
-          description: `${member} was successfully kicked by ${interaction.user.tag}.`,
+          description: `${member} was successfully banned by ${interaction.user.tag}.`,
         },
       ],
     });
@@ -82,7 +82,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.error} Kick failed`,
+          title: `${bot.config.emojis.error} Ban failed`,
           color: bot.config.colors.red,
           description: err.message,
         },
