@@ -16,6 +16,12 @@ const meta = () => {
           .setDescription("Member to kick")
           .setRequired(true),
       )
+      .addStringOption((option) =>
+        option
+          .setName("reason")
+          .setDescription("Reason for kicking")
+          .setRequired(false),
+      )
       // Only users with Kick Members permission can use this command
       .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
   );
@@ -24,6 +30,7 @@ const meta = () => {
 const execute = async (bot, interaction) => {
   // Ensure we can work with a GuildMember
   const member = interaction.options.getMember("user");
+  const reason = interaction.options.getString("reason");
   if (!member) {
     return interaction.reply({
       embeds: [
@@ -67,13 +74,21 @@ const execute = async (bot, interaction) => {
   }
 
   try {
-    await member.kick({ reason: `Kicked by ${interaction.user.tag}` });
+    await member.kick({
+      reason: reason || `Kicked by ${interaction.user.tag}`,
+    });
     return interaction.reply({
       embeds: [
         {
           title: `${bot.config.emojis.success} Kicked`,
           color: bot.config.colors.green,
           description: `${member} was successfully kicked by ${interaction.user.tag}.`,
+          fields: [
+            {
+              name: "Reason",
+              value: reason || "No reason provided",
+            },
+          ],
         },
       ],
     });
