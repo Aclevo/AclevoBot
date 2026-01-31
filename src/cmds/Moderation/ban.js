@@ -16,6 +16,12 @@ const meta = () => {
           .setDescription("Member to ban")
           .setRequired(true),
       )
+      .addStringOption((option) =>
+        option
+          .setName("reason")
+          .setDescription("Reason for the ban")
+          .setRequired(false),
+      )
       // Only users with Kick Members permission can use this command
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
   );
@@ -24,6 +30,8 @@ const meta = () => {
 const execute = async (bot, interaction) => {
   // Ensure we can work with a GuildMember
   const member = interaction.options.getMember("user");
+  const reason =
+    interaction.options.getString("reason") || "A reason was not provided";
   if (!member) {
     return interaction.reply({
       embeds: [
@@ -39,7 +47,7 @@ const execute = async (bot, interaction) => {
 
   // Check if bot has permission to kick
   const botMember = interaction.guild.members.cache.get(bot.client.user.id);
-  if (!botMember?.permissions.has(PermissionFlagsBits.KickMembers)) {
+  if (!botMember?.permissions.has(PermissionFlagsBits.BanMembers)) {
     return interaction.reply({
       embeds: [
         {
@@ -67,13 +75,21 @@ const execute = async (bot, interaction) => {
   }
 
   try {
-    await member.kick({ reason: `Banned by ${interaction.user.tag}` });
+    await member.ban({
+      reason: `${reason ? reason + " | " : ""}Banned by ${interaction.user.tag}`,
+    });
     return interaction.reply({
       embeds: [
         {
           title: `${bot.config.emojis.success} Banned`,
           color: bot.config.colors.green,
           description: `${member} was successfully banned by ${interaction.user.tag}.`,
+          fields: [
+            {
+              name: "Reason",
+              value: reason || "No reason provided",
+            },
+          ],
         },
       ],
     });
