@@ -1,9 +1,9 @@
 /*
- * AclevoBot
+ * AclevoBot v1
  * (c) 2026 Aclevo
  */
 
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 
 const meta = () => {
   return (
@@ -107,9 +107,7 @@ const execute = async (bot, interaction) => {
   }
 };
 
-module.exports = (app) => {
-  return {
-    meta,
-    execute,
-  };
-};
+export default (app) => ({
+  meta,
+  execute,
+});

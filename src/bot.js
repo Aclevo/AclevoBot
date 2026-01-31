@@ -1,267 +1,332 @@
 /*
- * TheCodingBot v6
- * codingbot.gg
- * (c) 2023 Netro Corporation
-*/
+ * AclevoBot v1
+ * (c) 2026 Aclevo
+ */
 
-const fs = require("fs");
-const path = require("path");
+// Bun-native imports (no require())
+import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
 
-const { Client, GatewayIntentBits, Partials, PermissionsBitField, Collection } = require("discord.js");
-const Logger = require(path.join(__dirname, "/utils/", `logger.js`))();
+// Use import.meta.dir instead of __dirname
+const baseDir = import.meta.dir;
+
+// Load logger using native ESM dynamic import
+const LoggerModule = await import(`${baseDir}/utils/logger.js`);
+const Logger = (LoggerModule.default ?? LoggerModule)();
+const loggerMeta = Logger.meta();
 
 class Bot {
-	constructor(config) {
-		this.uptime = {
-			startAt: new Date().getTime(),
-			readyAt: null
-		};
+  constructor(config) {
+    this.uptime = {
+      startAt: Date.now(),
+      readyAt: null,
+    };
 
-		this.baseDir = __dirname;
+    this.baseDir = baseDir;
+    this.config = config;
+    this.client = null;
 
-		this.config = config;
-		this.client = null;
-		this.version = {
-			major: 6,
-			minor: 0,
-			revision: 0,
-			release: "BETA",
+    this.version = {
+      major: 1,
+      minor: 0,
+      revision: 0,
+      release: "STABLE",
 
-			getBuild: () => { return this.version.release },
-			getVersion: () => { return `${this.version.major}.${this.version.minor}.${this.version.revision}` },
-			getFull: () => { return `${this.version.getVersion()} ${this.version.getBuild()}` }
-		};
+      getBuild: () => this.version.release,
+      getVersion: () =>
+        `${this.version.major}.${this.version.minor}.${this.version.revision}`,
+      getFull: () => `${this.version.getVersion()} ${this.version.getBuild()}`,
+    };
 
-		// Logger init
-		this.logger = new Logger.execute(this);
-		this.loggerMeta = Logger.meta();
-	}
+    // Logger init
+    this.logger = new Logger.execute(this);
+  }
 
-	init() {
-		// Initialization
-		this.logger.info("BOOTSTRAP", `Bootstrapper ${this.loggerMeta.name} initialized!`);
-		
-		// DO NOT REMOVE
-		this.logger.info("BOOTSTRAP", `TheCodingBot v${this.version.getFull()} by Netro Corporation.`);
-		// DO NOT REMOVE
+  init() {
+    this.logger.info(
+      "BOOTSTRAP",
+      `Bootstrapper ${loggerMeta.name} initialized!`,
+    );
+    this.logger.info(
+      "BOOTSTRAP",
+      `AclevoBot v${this.version.getFull()} by Aclevo.`,
+    );
 
-		// Checks
-		const sayErrorAndCrash = (errMsg) => {
-			// Say error
-			this.logger.error("BOOTSTRAP", `Check failed while starting: ${errMsg}`);
-			// And crash.
-			process.exit(-1);
-		};
+    const crash = (msg) => {
+      this.logger.error("BOOTSTRAP", `Check failed while starting: ${msg}`);
+      process.exit(-1);
+    };
 
-		if (this.config.debug == null || typeof this.config.debug != "boolean") return sayErrorAndCrash("Debug not set! Set it in .env under BOT_DEBUG_ENABLED");
+    // Config validation (same logic, cleaner syntax)
+    if (typeof this.config.debug !== "boolean")
+      crash("Debug not set! Set it in .env under BOT_DEBUG_ENABLED");
 
-		// Check API Stuffs
-		if (!this.config.apis || !this.config.apis == null || this.config.apis == "") return sayErrorAndCrash("API data or config loader broken.");
+    if (!this.config.apis?.base)
+      crash("Base API not set! Set it in .env under API_BASE");
 
-		if (!this.config.apis.base || this.config.apis.base == null || this.config.apis.base == "") return sayErrorAndCrash("Base API not set! Set it in .env under API_BASE");
+    const { discord } = this.config;
+    if (!discord?.clientName)
+      crash("Bot Name not set! Set it in .env under BOT_CLIENT_NAME");
+    if (!discord?.clientID)
+      crash("Bot ID not set! Set it in .env under BOT_CLIENT_ID");
+    if (!discord?.clientSecret)
+      crash("Bot Secret not set! Set it in .env under BOT_CLIENT_SECRET");
+    if (!discord?.token)
+      crash("Bot Token not set! Set it in .env under BOT_TOKEN");
+    if (typeof discord.enableSlashCommands !== "boolean")
+      crash(
+        "Enable Slash Commands not set! Set it in .env under COMMAND_SLASH_ENABLED",
+      );
+    if (
+      discord.enableSlashCommands &&
+      typeof discord.registerCommandsOnStart !== "boolean"
+    )
+      crash(
+        "Register Slash Commands On Start not set! Set it in .env under COMMAND_SLASH_REG_ON_START",
+      );
 
+    // Initialize Discord client
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+      ],
+      partials: [
+        Partials.Channel,
+        Partials.Message,
+        Partials.User,
+        Partials.GuildMember,
+        Partials.Reaction,
+      ],
+    });
 
-		// Check section Discord
-		if (!this.config.discord || !this.config.discord == null || this.config.discord == "") return sayErrorAndCrash("Discord data or config loader broken.");
+    return true;
+  }
 
-		if (!this.config.discord.clientName || this.config.discord.clientName == null || this.config.discord.clientName == "") return sayErrorAndCrash("Bot Name not set! Set it in .env under BOT_CLIENT_NAME");
-		if (!this.config.discord.clientID || this.config.discord.clientID == null || this.config.discord.clientID == "") return sayErrorAndCrash("Bot ID not set! Set it in .env under BOT_CLIENT_ID");
-		if (!this.config.discord.clientSecret || this.config.discord.clientSecret == null || this.config.discord.clientSecret == "") return sayErrorAndCrash("Bot Secret not set! Set it in .env under BOT_CLIENT_SECRET");
-		if (!this.config.discord.token || this.config.discord.token == null || this.config.discord.token == "") return sayErrorAndCrash("Bot Token not set! Set it in .env under BOT_TOKEN");
-		// if (this.config.shardingEnabled == null || this.config.shardingEnabled == "") return sayErrorAndCrash("Sharding not set! Set it in .env under BOT_SHARDING_ENABLED");
-		if (this.config.discord.enableSlashCommands == null || typeof this.config.discord.enableSlashCommands != "boolean") return sayErrorAndCrash("Enable Slash Commands not set! Set it in .env under COMMAND_SLASH_ENABLED");
-		if (this.config.discord.enableSlashCommands && (this.config.discord.registerCommandsOnStart == null || typeof this.config.discord.registerCommandsOnStart != "boolean")) return sayErrorAndCrash("Register Slash Commands On Start not set! Set it in .env under COMMAND_SLASH_REG_ON_START");
-		// if (this.config.discord.enablePrefixCommands == null || typeof this.config.discord.enablePrefixCommands != "boolean") return sayErrorAndCrash("Prefix Slash Commands not set! Set it in .env under COMMAND_PREFIX_ENABLED");
+  async initUtils() {
+    const importantUtils = ["db", "database", "func", "functions"];
+    this.utils = {};
 
-		// Init actual client
-		this.client = new Client({
-			intents: [
-				// INTENT: MESSAGE CONTENT
-				GatewayIntentBits.DirectMessages,
-				GatewayIntentBits.MessageContent,
-				// INTENT: GUILDS
-				GatewayIntentBits.Guilds,
-				GatewayIntentBits.GuildMembers,
-				GatewayIntentBits.GuildMessages,
-				GatewayIntentBits.GuildMessageReactions
-			],
-			partials: [
-				Partials.Channel,
-				Partials.Message,
-				Partials.User,
-				Partials.GuildMember,
-				Partials.Reaction
-			]
-		});
+    // Bun.Glob: Native, synchronous, and significantly faster than fs.readdirSync
+    const glob = new Bun.Glob("*.js");
+    const utilsDir = `${this.baseDir}/utils`;
 
-		return true;
-	}
+    for (const file of glob.scanSync({ cwd: utilsDir })) {
+      const start = Date.now();
+      const filePath = `${utilsDir}/${file}`;
+      const fileName = file.replace(/\.js$/, "");
 
-	initUtils() {
-		// Load utils
+      try {
+        // Native ESM dynamic import (Bun caches these efficiently)
+        const utilModule = await import(filePath);
+        const util = (utilModule.default ?? utilModule)(this, {});
+        const meta = util.meta();
 
-		const importantUtils = [ "db", "database", "func", "functions" ];
-		this.utils = {};
-		const utilsDir = path.join(this.baseDir, "utils");
-		const utilsFiles = fs.readdirSync(utilsDir)
-			.filter(utilsFiles => utilsFiles.endsWith("js"));
-		
-		for (const utilsFile of utilsFiles) {
-			const startImport = new Date().getTime(),
-				fileLocation = path.join(utilsDir, utilsFile),
-				fileName = utilsFile.replace(path.extname(utilsFile), "");
+        this.utils[fileName] = util.execute;
+        this.logger.debug(
+          "BOOTSTRAP",
+          `Load util ${meta.name}: OK in ${Date.now() - start}ms`,
+        );
+      } catch (err) {
+        this.logger.error(
+          "BOOTSTRAP",
+          `Load util ${fileName}: NOT OK - ${err.message}`,
+        );
+        console.error(err.stack);
 
-			try {
-				let options = {};
+        if (importantUtils.includes(fileName)) {
+          this.logger.error(
+            "BOOTSTRAP",
+            "Important util failed to load. Exiting...!",
+          );
+          process.exit(-1);
+        }
+      }
+    }
 
-				const util = require(fileLocation)(this, options);
-				const utilMeta = util.meta();
+    return true;
+  }
 
-				this.utils[fileName] = util.execute;
-				this.logger.debug("BOOTSTRAP", `Load util ${utilMeta.name}: OK in ${new Date().getTime() - startImport}ms.`);
-			} catch (Ex) {
-				this.logger.error("BOOTSTRAP", `Load util ${fileName}: NOT OK - ${Ex.message}.`);
-				console.log(Ex.stack);
+  async initEvents() {
+    if (!this.client) throw new Error("Please init the client first.");
 
-				if (importantUtils.includes(fileName)) {
-					this.logger.error("BOOTSTRAP", `Important util failed to load. Exiting...!`);
-					process.exit(-1);
-				};
-			};
-		};
+    this.events = new Collection();
+    const glob = new Bun.Glob("**/*.js");
+    const evtsDir = `${this.baseDir}/evts`;
 
-		return true;
-	}
+    for (const filePath of glob.scanSync({ cwd: evtsDir })) {
+      const start = Date.now();
+      const absolutePath = `${evtsDir}/${filePath}`;
+      const fileName = filePath.replace(/\.js$/, "").split("/").pop();
 
-	initEvents() {
-		// Load events
-		if (!this.client) return new Error("Please init the client first.");
+      try {
+        // Clear module cache using Bun's native approach
+        if (this.functions?.clearCache) this.functions.clearCache(absolutePath);
 
-		this.events = new Collection();
-		const evtsDir = path.join(this.baseDir, "evts");
+        const eventModule = await import(absolutePath);
+        const event = (eventModule.default ?? eventModule)();
+        const meta = event.meta();
 
-		fs.readdirSync(evtsDir).forEach(dir => {
-			const eventFiles = fs.readdirSync(path.join(evtsDir, dir))
-				.filter(eventFiles => eventFiles.endsWith("js"));
-			
-			for (const eventFile of eventFiles) {
-				const startImport = new Date().getTime(),
-					fileLocation = path.join(evtsDir, dir, eventFile),
-					fileName = eventFile.replace(path.extname(eventFile), "");
+        if (meta.type === "rest") {
+          this.client.rest.on(meta.name, (...args) => event.run(this, args));
+        } else {
+          this.client.on(meta.name, (...args) => event.run(this, args));
+        }
 
-				this.functions.clearCache(fileLocation);
-				try {
-					const event = require(fileLocation)();
-					const eventMeta = event.meta();
-					if (eventMeta.type == "rest") this.client.rest.on(eventMeta.name, (...args) => event.run(app, args));
-					else this.client.on(eventMeta.name, (...args) => event.run(this, args));
+        this.logger.debug(
+          "BOOTSTRAP",
+          `Load event ${meta.name}: OK in ${Date.now() - start}ms`,
+        );
+      } catch (err) {
+        this.logger.error(
+          "BOOTSTRAP",
+          `Load event ${fileName}: NOT OK - ${err.message}`,
+        );
+        console.error(err.stack);
+      }
+    }
 
-					this.logger.debug("BOOTSTRAP", `Load event ${eventMeta.name}: OK in ${new Date().getTime() - startImport}ms.`);
-				} catch (Ex) {
-					this.logger.error("BOOTSTRAP", `Load event ${fileName}: NOT OK - ${Ex.message}.`);
-					console.log(Ex.stack);
-				};
-			};
-		});
+    return true;
+  }
 
-		return true;
-	}
+  async initCommands() {
+    if (!this.client) throw new Error("Please init the client first.");
 
-	initCommands() {
-		// Load commands
-		if (!this.client) return new Error("Please init the client first.");
+    this.commands = {
+      slash: new Collection(),
+      slash_data: [],
+    };
 
-		this.commands = {
-			slash: new Collection(),
-			slash_data: []
-		};
+    const glob = new Bun.Glob("**/*.js");
+    const cmdsDir = `${this.baseDir}/cmds`;
 
-		const cmdsDir = path.join(this.baseDir, "cmds");
+    for (const filePath of glob.scanSync({ cwd: cmdsDir })) {
+      const start = Date.now();
+      const absolutePath = `${cmdsDir}/${filePath}`;
+      const fileName = filePath.replace(/\.js$/, "").split("/").pop();
 
-		fs.readdirSync(cmdsDir).forEach(dir => {
-			const commandFiles = fs.readdirSync(path.join(cmdsDir, dir))
-				.filter(commandFiles => commandFiles.endsWith("js"));
-			
-			for (const commandFile of commandFiles) {
-				const startImport = new Date().getTime(),
-					fileLocation = path.join(cmdsDir, dir, commandFile),
-					fileName = commandFile.replace(path.extname(commandFile), "");
+      try {
+        if (this.functions?.clearCache) this.functions.clearCache(absolutePath);
 
-				this.functions.clearCache(fileLocation);
-				try {
-					const command = require(fileLocation)();
-					if (!("meta" in command) || !("execute" in command)) throw new Error(`missing a required "meta" or "execute" property.`);
+        const cmdModule = await import(absolutePath);
+        const command = (cmdModule.default ?? cmdModule)();
+        if (!("meta" in command) || !("execute" in command)) {
+          throw new Error('missing required "meta" or "execute" property');
+        }
 
-					const commandMeta = command.meta().toJSON();
+        const meta = command.meta().toJSON();
+        const category = filePath.split("/")[0];
 
-					this.commands.slash.set(commandMeta.name, { ...command, meta: { ...commandMeta, category: dir, ownerOnly: commandMeta.ownerOnly || (dir === "Owner")  } }); // Restruct meta
-					this.commands.slash_data.push(commandMeta);
+        this.commands.slash.set(meta.name, {
+          ...command,
+          meta: {
+            ...meta,
+            category,
+            ownerOnly: meta.ownerOnly || category === "Owner",
+          },
+        });
+        this.commands.slash_data.push(meta);
 
-					this.logger.debug("BOOTSTRAP", `Load command ${commandMeta.name}: OK in ${new Date().getTime() - startImport}ms.`);
-				} catch (Ex) {
-					this.logger.error("BOOTSTRAP", `Load command ${fileName}: NOT OK - ${Ex.message}.`);
-					console.log(Ex.stack);
-				};
-			};
-		});
+        this.logger.debug(
+          "BOOTSTRAP",
+          `Load command ${meta.name}: OK in ${Date.now() - start}ms`,
+        );
+      } catch (err) {
+        this.logger.error(
+          "BOOTSTRAP",
+          `Load command ${fileName}: NOT OK - ${err.message}`,
+        );
+        console.error(err.stack);
+      }
+    }
 
-		return true;
-	}
+    return true;
+  }
 
-	login() {
-		// Login
-		this.client.login(this.config.discord.token)
-			.then(() => {
-				this.logger.info("BOOTSTRAP", `Logged in!`);
-			})
-			.catch(err => {
-				this.logger.error("BOOTSTRAP", `Login failed: ${err.message}`);
-				process.exit(-1);
-			});
-		return true;
-	}
-};
+  login() {
+    return this.client
+      .login(this.config.discord.token)
+      .then(() => {
+        this.logger.info("BOOTSTRAP", "Logged in!");
+        this.uptime.readyAt = Date.now();
+      })
+      .catch((err) => {
+        this.logger.error("BOOTSTRAP", `Login failed: ${err.message}`);
+        process.exit(-1);
+      });
+  }
+}
 
-const botInit = async(config) => {
-	if (!config) {
-		console.log("\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m");
-		process.exit(-1);
-	}
-	// console.log(spawningManager)
-	console.log("Starting the bot, please wait.");
-	const bot = new Bot(config);
-	// if (spawningManager) bot.manager = spawningManager;
+// Main initialization function (ESM compatible)
+export default async function botInit(config) {
+  if (!config) {
+    console.error(
+      "\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m",
+    );
+    process.exit(-1);
+  }
 
-	await bot.init();
-	await bot.initUtils();
+  console.log("Starting the bot, please wait.");
+  const bot = new Bot(config);
 
-	const findEr = (s) => { bot.logger.error("BOOTSTRAP", `Failed to find ${s}. Exiting...!`); };
-	if (bot.utils) {
-		if (!bot.utils.functions) { findEr("functions"); process.exit(-1); }
-		else if (!bot.utils.database) { findEr("database"); process.exit(-1); };
-	} else { findEr("utils"); process.exit(-1); };
-	
-	bot.functions = new bot.utils.functions(bot);
+  await bot.init();
+  await bot.initUtils();
 
-	const db = new bot.utils.database(bot);
-	await db.init({
-		username: process.env.DB_NAME ? process.env.DB_USER : null,
-		password: process.env.DB_NAME ? process.env.DB_PASS : null,
-		database: process.env.DB_NAME ? process.env.DB_NAME : "TheCodingBot",
-		dbCfg: {
-			dialect: "mysql",
-			host: process.env.MYSQL_DATABASE ? process.env.DB_HOST : "0.0.0.0",
-			logging: data => { bot.logger.debug("DATABASE", data); }
-		},
-	});
+  const verifyUtil = (name) => {
+    if (!bot.utils?.[name]) {
+      bot.logger.error("BOOTSTRAP", `Failed to find ${name}. Exiting...!`);
+      process.exit(-1);
+    }
+  };
 
-	bot.lang = new bot.utils.language(bot);
-	await bot.lang.init();
+  verifyUtil("functions");
+  verifyUtil("database");
 
-	await bot.initEvents();
-	await bot.initCommands();
-	await bot.login();
-};
+  bot.functions = new bot.utils.functions(bot);
 
-module.exports = botInit;
-if (require.main === module) { console.log("\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m"); };
+  const db = new bot.utils.database(bot);
+  try {
+    await db.init({
+      database: process.env.DB_NAME ?? "thecodingbot.sqlite",
+      dbCfg: {
+        dialect: "sqlite",
+        storage: process.env.DB_STORAGE ?? "./database.sqlite",
+        logging: (data) => bot.logger.debug("DATABASE", data),
+      },
+    });
+    bot.logger.info("DATABASE", "Database connected successfully");
+  } catch (error) {
+    bot.logger.warn("DATABASE", `Database connection failed: ${error.message}`);
+    bot.logger.warn(
+      "DATABASE",
+      "Bot will continue without database functionality",
+    );
+    // Optionally disable features that require database
+    bot.db = null;
+  }
+
+  if (bot.utils.language) {
+    bot.lang = new bot.utils.language(bot);
+    if (bot.lang?.init) await bot.lang.init();
+  } else {
+    bot.logger.warn("SYSTEM", "Language utility not available");
+    bot.lang = null;
+  }
+
+  await bot.initEvents();
+  await bot.initCommands();
+  await bot.login();
+
+  return bot;
+}
+
+// Prevent direct execution (Bun-compatible check)
+if (import.meta.main) {
+  console.error(
+    "\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m",
+  );
+  process.exit(-1);
+}

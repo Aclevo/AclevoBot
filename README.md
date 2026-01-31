@@ -3,6 +3,9 @@
 ## Introduction
 This is the source code for AclevoBot. It is based on TheCodingBot v6_new.
 
+## Warning
+Version 7 is not recommended for production use. Please use version 6 instead.
+
 ## Get online!
 :warning: **Heads up!** Docker is not recommended for AclevoBot.
 Use the instructions below to get your bot up and running.

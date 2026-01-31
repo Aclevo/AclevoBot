@@ -1,24 +1,23 @@
 /*
- * TheCodingBot v6
- * codingbot.gg
- * (c) 2023 Netro Corporation
-*/
+ * AclevoBot v1
+ * (c) 2026 Aclevo
+ */
 
-const { SlashCommandBuilder } = require("discord.js");
+import { SlashCommandBuilder } from "discord.js";
 
 const meta = () => {
-	return new SlashCommandBuilder()
-		.setName("hello")
-		.setDescription("Hello world - testing.");
+  return new SlashCommandBuilder()
+    .setName("hello")
+    .setDescription("Hello world - testing.");
 };
 
-const execute = async(bot, interaction) => {
-	await interaction.reply(`${bot.lang.get("hello_world.description", "en_US", { FULLVER: bot.version.getFull() })}`);
+const execute = async (bot, interaction) => {
+  await interaction.reply(
+    `${bot.lang.get("hello_world.description", "en_US", { FULLVER: bot.version.getFull() })}`,
+  );
 };
 
-module.exports = (app) => {
-	return {
-		meta,
-		execute
-	}
-};
+export default (app) => ({
+  meta,
+  execute,
+});

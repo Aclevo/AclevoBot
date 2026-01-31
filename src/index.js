@@ -1,15 +1,20 @@
 /*
- * TheCodingBot v6
- * codingbot.gg
- * (c) 2023 Netro Corporation
+ * AclevoBot v1
+ * (c) 2026 Aclevo
  */
 
-require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
+/* Bun replaces Node's fs module with its own built‑in file API. No import needed here. */
+/* Bun provides a global `path` object, but we can avoid importing it entirely by using URL resolution for our file path. */
+/* Bun automatically loads .env files, so no need for dotenv import */
 
-const { ShardingManager } = require("discord.js");
-var emojisJson = require("../emojis.json");
+import { ShardingManager } from "discord.js";
+let emojisJson;
+try {
+  emojisJson = await import("../emojis.json", { assert: { type: "json" } });
+  emojisJson = emojisJson.default;
+} catch {
+  emojisJson = {};
+}
 if (!emojisJson) emojisJson = {};
 
 const config = {
@@ -80,7 +85,7 @@ const config = {
   },
 };
 
-const botJSFile = path.join(__dirname, "bot.js");
+const botJSFile = new URL("./bot.js", import.meta.url).pathname;
 
 if (config.shardingEnabled) {
   console.log("\x1b[31mPlease do not use sharing, yet.\x1b[0m");
@@ -94,5 +99,7 @@ if (config.shardingEnabled) {
   // });
   // manager.spawn();
 } else {
-  require(botJSFile)(config);
+  const botModule = await import(botJSFile);
+  const botInit = botModule.default ?? botModule;
+  await botInit(config);
 }

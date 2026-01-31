@@ -1,21 +1,21 @@
 /*
- * TheCodingBot v6
- * codingbot.gg
- * (c) 2023 Netro Corporation
-*/
+ * AclevoBot v1
+ * (c) 2026 Aclevo
+ */
 
 const meta = () => {
-	return {
-		name: "Fetch",
-		description: "Fetches things."
-	};
+  return {
+    name: "Fetch",
+    description: "Fetches things.",
+  };
 };
 
-const fetch = (...args) => import("node-fetch").then(({default: fetch}) => fetch(...args));
+// Bun has a built-in fetch API, so we can use it directly
+const fetch = globalThis.fetch;
 
-module.exports = (app) => {
-	return {
-		meta,
-		execute: fetch
-	}
+export default (app) => {
+  return {
+    meta,
+    execute: fetch,
+  };
 };

@@ -1,32 +1,27 @@
 {
-  "name": "thecodingbot",
-  "version": "6.0.0",
-  "description": "TheCodingBot - a Discord Bot.",
+  "name": "aclevobot",
+  "version": "1.0.0",
+  "description": "AclevoBot - a Discord Bot by Aclevo.",
   "main": "src/index.js",
   "scripts": {
-    "prod": "node .",
-    "debug": "nodemon --trace-warnings .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prod": "bun run --bun .",
+    "debug": "bun run --bun --watch .",
+    "test": "echo \"Error: Not implemented\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NetroCorp/TheCodingBot.git"
+    "url": "git+https://github.com/Aclevo/AclevoBot.git"
   },
-  "author": "Netro Corporation",
-  "license": "MIT",
+  "author": "Aclevo",
+  "license": "GPL-3.0-only",
   "bugs": {
-    "url": "https://github.com/NetroCorp/TheCodingBot/issues"
+    "url": "https://github.com/Aclevo/AclevoBot/issues"
   },
-  "homepage": "https://github.com/NetroCorp/TheCodingBot#readme",
-  "devDependencies": {
-    "nodemon": "^3.1.11"
-  },
+  "homepage": "https://github.com/Aclevo/AclevoBot#readme",
+  "devDependencies": {},
   "dependencies": {
     "discord.js": "^14.25.1",
-    "dotenv": "^16.6.1",
-    "i18next": "^23.16.8",
     "mysql2": "^3.16.2",
-    "node-fetch": "^3.3.2",
     "sequelize": "^6.37.7"
   }
 }

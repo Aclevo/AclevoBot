@@ -1,48 +1,53 @@
 /*
- * TheCodingBot v6
- * codingbot.gg
- * (c) 2023 Netro Corporation
-*/
+ * AclevoBot v1
+ * (c) 2026 Aclevo
+ */
 
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 
 const meta = () => {
-	return new SlashCommandBuilder()
-		.setName("eval")
-		.setDescription("Run JS code.")
-		.addStringOption(option => option
-			.setName("code")
-			.setDescription("The code to execute")
-			.setRequired(true)
-		)
-		.setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
+  return new SlashCommandBuilder()
+    .setName("eval")
+    .setDescription("Run JS code.")
+    .addStringOption((option) =>
+      option
+        .setName("code")
+        .setDescription("The code to execute")
+        .setRequired(true),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
 };
 
-const execute = async(bot, interaction) => {
-	try {
-		const { inspect } = require("util");
-		const code = interaction.options.getString("code");
+const execute = async (bot, interaction) => {
+  try {
+    const code = interaction.options.getString("code");
 
-		let evaluated = inspect(eval(code, { depth: 0 }));
-		if (evaluated !== "Promise { <pending> }") {
-			return await interaction.reply({ embeds: [{
-				title: bot.lang.get("eval.title", "en_US"),
-				color: bot.config.colors.green,
-				description: "```js\n" + ((evaluated == "") ? "" : evaluated) + "```"
-			}]});
-		} else return await interaction.reply({ content: "** **" });
-	} catch (Ex) {
-		return await interaction.reply({ embeds: [{
-			title: bot.lang.get("eval.title", "en_US"),
-			color: bot.config.colors.red,
-			description: "```js\n" + Ex.stack + "```"
-		}]});
-	};
+    let evaluated = Bun.inspect(eval(code, { depth: 0 }));
+    if (evaluated !== "Promise { <pending> }") {
+      return await interaction.reply({
+        embeds: [
+          {
+            title: bot.lang.get("eval.title", "en_US"),
+            color: bot.config.colors.green,
+            description: "```js\n" + (evaluated == "" ? "" : evaluated) + "```",
+          },
+        ],
+      });
+    } else return await interaction.reply({ content: "** **" });
+  } catch (Ex) {
+    return await interaction.reply({
+      embeds: [
+        {
+          title: bot.lang.get("eval.title", "en_US"),
+          color: bot.config.colors.red,
+          description: "```js\n" + Ex.stack + "```",
+        },
+      ],
+    });
+  }
 };
 
-module.exports = (app) => {
-	return {
-		meta,
-		execute
-	}
-};
+export default (app) => ({
+  meta,
+  execute,
+});
