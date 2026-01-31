@@ -10,23 +10,24 @@ const meta = () => {
 };
 
 const execute = async (bot, interaction) => {
-  ((data = [
+  let data = [
     bot.client.shard ? bot.client.shard.ids : 0,
     bot.client.ws.status,
     bot.client.guilds.cache.size,
     bot.client.ws.ping,
-  ]),
-    (statusTypes = [
-      "READY",
-      "CONNECTING",
-      "RECONNECTING",
-      "IDLE",
-      "NEARLY",
-      "DISCONNECTED",
-      "WAITING FOR GUILDS",
-      "IDENTIFYING",
-      "RESUMING",
-    ]));
+  ];
+
+  let statusTypes = [
+    "READY",
+    "CONNECTING",
+    "RECONNECTING",
+    "IDLE",
+    "NEARLY",
+    "DISCONNECTED",
+    "WAITING FOR GUILDS",
+    "IDENTIFYING",
+    "RESUMING",
+  ];
 
   await interaction.reply({
     embeds: [
