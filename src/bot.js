@@ -290,16 +290,29 @@ export default async function botInit(config) {
 
   console.log("Starting the bot, please wait.");
   bot = new Bot(config);
+  bot.runtime = { shuttingDown: false, timers: new Set() };
+
+  const markShuttingDown = () => {
+    if (!bot) return;
+    if (!bot.runtime) bot.runtime = { shuttingDown: true, timers: new Set() };
+    bot.runtime.shuttingDown = true;
+    if (bot.runtime.timers?.size) {
+      for (const timer of bot.runtime.timers) clearTimeout(timer);
+      bot.runtime.timers.clear();
+    }
+  };
 
   try {
     bot.init();
     await bot.initUtils();
     await Promise.all([bot.initEvents(), bot.initCommands()]);
   } catch (err) {
+    markShuttingDown();
     await shutdown({
       code: 1,
       reason: err?.message || err,
       cleanup: async () => {
+        markShuttingDown();
         if (bot?.client) await bot.client.destroy();
       },
     });
@@ -324,10 +337,12 @@ export default async function botInit(config) {
       await bot.login();
     }
   } catch (err) {
+    markShuttingDown();
     await shutdown({
       code: 1,
       reason: err?.message || err,
       cleanup: async () => {
+        markShuttingDown();
         if (bot?.client) await bot.client.destroy();
       },
     });
@@ -336,10 +351,12 @@ export default async function botInit(config) {
 
   // Properly set up signal handlers with access to the bot instance
   const handleExitSignal = async (signal) => {
+    markShuttingDown();
     await shutdown({
       code: 0,
       reason: `Received ${signal} signal.`,
       cleanup: async () => {
+        markShuttingDown();
         if (bot?.client) await bot.client.destroy();
       },
     });
@@ -350,15 +367,25 @@ export default async function botInit(config) {
   }
 
   process.on("unhandledRejection", async (reason, promise) => {
+    const reasonMsg = reason?.message || String(reason);
+    if (
+      bot.runtime?.shuttingDown &&
+      reasonMsg.includes("Shard") &&
+      reasonMsg.includes("not found")
+    ) {
+      return;
+    }
     bot.logger.error("SYSTEM", "Unhandled Rejection");
-    bot.logger.error(
-      "SYSTEM",
-      `Promise: ${promise} | Reason: ${reason?.message || reason}`,
-    );
+    if (reason?.stack) {
+      bot.logger.error("SYSTEM", `Stack: ${reason.stack}`);
+    }
+    bot.logger.error("SYSTEM", `Promise: ${promise} | Reason: ${reasonMsg}`);
+    markShuttingDown();
     await shutdown({
       code: 1,
       reason: "Unhandled promise rejection.",
       cleanup: async () => {
+        markShuttingDown();
         if (bot?.client) await bot.client.destroy();
       },
     });

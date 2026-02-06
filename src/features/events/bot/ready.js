@@ -51,7 +51,11 @@ export default defineEvent({
       bot.config.discord.botInvite = `https://discord.com/oauth2/authorize?client_id=${bot.client.user.id}&permissions=${bot.config.discord.botInvitePerms}&scope=bot`;
     } else bot.config.discord.botInvite = bot.config.discord.botInviteBase;
 
-    setTimeout(() => {
+    const cacheTimeout = setTimeout(() => {
+      if (bot.runtime?.shuttingDown || bot.client?.isReady?.() === false) {
+        return;
+      }
+
       if (bot.client.guilds.cache.size < 1) {
         bot.logger.info(
           "SYSTEM",
@@ -82,14 +86,35 @@ export default defineEvent({
           // Add delay every 10th guild to prevent rate limiting
           const delay = index % 10 == 0 ? 1000 : 0;
 
+          const safeFetch = async (label, fn) => {
+            if (bot.runtime?.shuttingDown) return;
+            try {
+              await fn();
+            } catch (err) {
+              if (bot.runtime?.shuttingDown) return;
+              const msg = err?.message || String(err);
+              if (msg.includes("Shard") && msg.includes("not found")) return;
+              bot.logger.debug(
+                "DISCORD",
+                `[${guild.id}] Cache fetch failed (${label}): ${msg}`,
+              );
+            }
+          };
+
           const promise = (async () => {
             if (delay > 0) await bot.functions.sleep(delay);
+            if (
+              bot.runtime?.shuttingDown ||
+              bot.client?.isReady?.() === false
+            ) {
+              return;
+            }
 
             // Fetch all resources concurrently for each guild
-            await Promise.allSettled([
-              guild.members.fetch(),
-              guild.channels.fetch(),
-              guild.roles.fetch(),
+            await Promise.all([
+              safeFetch("members", () => guild.members.fetch()),
+              safeFetch("channels", () => guild.channels.fetch()),
+              safeFetch("roles", () => guild.roles.fetch()),
             ]);
 
             bot.logger.debug(
@@ -116,5 +141,6 @@ export default defineEvent({
           });
       }
     }, 1500); // Give any extra time to show other stuff.
+    if (bot.runtime?.timers) bot.runtime.timers.add(cacheTimeout);
   },
 });
