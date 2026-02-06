@@ -175,9 +175,7 @@ class Functions {
   };
 }
 
-export default (bot) => {
-  return {
-    meta,
-    execute: Functions,
-  };
+export default {
+  meta,
+  execute: Functions,
 };

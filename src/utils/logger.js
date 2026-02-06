@@ -164,9 +164,7 @@ class Logger {
   };
 }
 
-export default (bot) => {
-  return {
-    meta,
-    execute: Logger,
-  };
+export default {
+  meta,
+  execute: Logger,
 };

@@ -13,9 +13,7 @@ const meta = () => {
 // Bun has a built-in fetch API, so we can use it directly
 const fetch = globalThis.fetch;
 
-export default (app) => {
-  return {
-    meta,
-    execute: fetch,
-  };
+export default {
+  meta,
+  execute: fetch,
 };

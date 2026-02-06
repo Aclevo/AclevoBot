@@ -5,6 +5,7 @@
 
 // Bun automatically loads .env files, so no need for dotenv import
 import { Client, REST, Routes } from "discord.js";
+import { createShutdown } from "./utils/shutdown.js";
 
 const self = {
   config: { debug: true, discord: { token: process.env.BOT_TOKEN } },
@@ -20,6 +21,10 @@ const sayErrorAndCrash = (errMsg) => {
   self.logger.error("BOOTSTRAP", `Check failed while starting: ${errMsg}`);
   throw new Error(errMsg);
 };
+
+const shutdown = createShutdown({
+  logger: self.logger,
+});
 
 const main = async () => {
   if (!self.config.discord) {
@@ -66,11 +71,13 @@ const main = async () => {
         );
       });
 
-    self.logger.debug("DISCORD", "Logging out...");
-    await self.client.destroy();
-
-    self.logger.debug("SYSTEM", "Exiting...");
-    process.exitCode = 0;
+    await shutdown({
+      code: 0,
+      reason: "Prune finished.",
+      cleanup: async () => {
+        await self.client.destroy();
+      },
+    });
   });
 
   await self.client.login(self.config.discord.token);
@@ -80,6 +87,11 @@ try {
   await main();
 } catch (err) {
   const message = err?.message || String(err);
-  self.logger.error("SYSTEM", `Shutdown requested: ${message}`);
-  process.exitCode = 1;
+  await shutdown({
+    code: 1,
+    reason: message,
+    cleanup: async () => {
+      if (self.client) await self.client.destroy();
+    },
+  });
 }

@@ -59,9 +59,7 @@ class ErrorLog {
   };
 }
 
-export default (bot) => {
-  return {
-    meta,
-    execute: ErrorLog,
-  };
+export default {
+  meta,
+  execute: ErrorLog,
 };

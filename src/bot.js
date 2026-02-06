@@ -11,13 +11,15 @@ import {
   Collection,
   Options,
 } from "discord.js";
+import { loadModules } from "./utils/loader.js";
+import { createShutdown } from "./utils/shutdown.js";
 
 // Use import.meta.dir instead of __dirname
 const baseDir = import.meta.dir;
 
 // Load logger using native ESM dynamic import
 const LoggerModule = await import(`${baseDir}/utils/logger.js`);
-const Logger = (LoggerModule.default ?? LoggerModule)();
+const Logger = LoggerModule.default ?? LoggerModule;
 const loggerMeta = Logger.meta();
 
 class Bot {
@@ -145,100 +147,69 @@ class Bot {
     return true;
   }
 
-  scanGlob(pattern, cwd) {
-    const glob = new Bun.Glob(pattern);
-    return glob.scanSync({ cwd });
-  }
-
   async initUtils() {
     const importantUtils = ["func", "functions"];
     this.utils = {};
 
-    // Bun.Glob: Native, synchronous, and significantly faster than fs.readdirSync
     const utilsDir = `${this.baseDir}/utils`;
+    const importantSet = new Set(importantUtils);
 
-    const files = this.scanGlob("*.js", utilsDir);
-    await Promise.all(
-      files.map(async (file) => {
-        const start = Date.now();
-        const filePath = `${utilsDir}/${file}`;
-        const fileName = file.replace(/\.js$/, "");
+    return loadModules({
+      pattern: "*.js",
+      cwd: utilsDir,
+      logger: this.logger,
+      kind: "util",
+      onLoad: async ({ module, fileName }) => {
+        const utilModule = module.default ?? module;
+        const util =
+          typeof utilModule === "function" ? utilModule(this, {}) : utilModule;
+        const meta = util.meta?.() ?? { name: fileName };
 
-        try {
-          // Native ESM dynamic import (Bun caches these efficiently)
-          const utilModule = await import(filePath);
-          const util = (utilModule.default ?? utilModule)(this, {});
-          const meta = util.meta();
-
-          this.utils[fileName] = util.execute;
-          this.logger.debug(
-            "BOOTSTRAP",
-            `Load util ${meta.name}: OK in ${Date.now() - start}ms`,
-          );
-        } catch (err) {
+        this.utils[fileName] = util.execute;
+        return meta.name || fileName;
+      },
+      onError: async ({ fileName }) => {
+        if (importantSet.has(fileName)) {
           this.logger.error(
             "BOOTSTRAP",
-            `Load util ${fileName}: NOT OK - ${err.message}`,
+            "Important util failed to load. Exiting...!",
           );
-          console.error(err.stack);
-
-          if (importantUtils.includes(fileName)) {
-            this.logger.error(
-              "BOOTSTRAP",
-              "Important util failed to load. Exiting...!",
-            );
-            throw new Error("Important util failed to load");
-          }
+          throw new Error("Important util failed to load");
         }
-      }),
-    );
-
-    return true;
+      },
+    });
   }
 
   async initEvents() {
     if (!this.client) throw new Error("Please init the client first.");
 
     this.events = new Collection();
-    const evtsDir = `${this.baseDir}/evts`;
+    const evtsDir = `${this.baseDir}/features/events`;
 
-    const files = this.scanGlob("**/*.js", evtsDir);
-    await Promise.all(
-      files.map(async (filePath) => {
-        const start = Date.now();
-        const absolutePath = `${evtsDir}/${filePath}`;
-        const fileName = filePath.replace(/\.js$/, "").split("/").pop();
-
-        try {
-          // Clear module cache using Bun's native approach
-          if (this.functions?.clearCache)
-            this.functions.clearCache(absolutePath);
-
-          const eventModule = await import(absolutePath);
-          const event = (eventModule.default ?? eventModule)();
-          const meta = event.meta();
-
-          if (meta.type === "rest") {
-            this.client.rest.on(meta.name, (...args) => event.run(this, args));
-          } else {
-            this.client.on(meta.name, (...args) => event.run(this, args));
-          }
-
-          this.logger.debug(
-            "BOOTSTRAP",
-            `Load event ${meta.name}: OK in ${Date.now() - start}ms`,
-          );
-        } catch (err) {
-          this.logger.error(
-            "BOOTSTRAP",
-            `Load event ${fileName}: NOT OK - ${err.message}`,
-          );
-          console.error(err.stack);
+    return loadModules({
+      pattern: "**/*.js",
+      cwd: evtsDir,
+      logger: this.logger,
+      kind: "event",
+      onLoad: async ({ module, absolutePath, fileName }) => {
+        if (this.functions?.clearCache) {
+          this.functions.clearCache(absolutePath);
         }
-      }),
-    );
 
-    return true;
+        const eventModule = module.default ?? module;
+        const event =
+          typeof eventModule === "function" ? eventModule() : eventModule;
+        const meta = event.meta?.() ?? event.meta;
+
+        if (meta.type === "rest") {
+          this.client.rest.on(meta.name, (...args) => event.run(this, args));
+        } else {
+          this.client.on(meta.name, (...args) => event.run(this, args));
+        }
+
+        return meta.name || fileName;
+      },
+    });
   }
 
   async initCommands() {
@@ -249,53 +220,41 @@ class Bot {
       slash_data: [],
     };
 
-    const cmdsDir = `${this.baseDir}/cmds`;
+    const cmdsDir = `${this.baseDir}/features/commands`;
 
-    const files = this.scanGlob("**/*.js", cmdsDir);
-    await Promise.all(
-      files.map(async (filePath) => {
-        const start = Date.now();
-        const absolutePath = `${cmdsDir}/${filePath}`;
-        const fileName = filePath.replace(/\.js$/, "").split("/").pop();
-
-        try {
-          if (this.functions?.clearCache)
-            this.functions.clearCache(absolutePath);
-
-          const cmdModule = await import(absolutePath);
-          const command = (cmdModule.default ?? cmdModule)();
-          if (!("meta" in command) || !("execute" in command)) {
-            throw new Error('missing required "meta" or "execute" property');
-          }
-
-          const meta = command.meta().toJSON();
-          const category = filePath.split("/")[0];
-
-          this.commands.slash.set(meta.name, {
-            ...command,
-            meta: {
-              ...meta,
-              category,
-              ownerOnly: meta.ownerOnly || category === "Owner",
-            },
-          });
-          this.commands.slash_data.push(meta);
-
-          this.logger.debug(
-            "BOOTSTRAP",
-            `Load command ${meta.name}: OK in ${Date.now() - start}ms`,
-          );
-        } catch (err) {
-          this.logger.error(
-            "BOOTSTRAP",
-            `Load command ${fileName}: NOT OK - ${err.message}`,
-          );
-          console.error(err.stack);
+    return loadModules({
+      pattern: "**/*.js",
+      cwd: cmdsDir,
+      logger: this.logger,
+      kind: "command",
+      onLoad: async ({ module, absolutePath, filePath, fileName }) => {
+        if (this.functions?.clearCache) {
+          this.functions.clearCache(absolutePath);
         }
-      }),
-    );
 
-    return true;
+        const cmdModule = module.default ?? module;
+        const command =
+          typeof cmdModule === "function" ? cmdModule() : cmdModule;
+        if (!("meta" in command) || !("execute" in command)) {
+          throw new Error('missing required "meta" or "execute" property');
+        }
+
+        const meta = command.meta().toJSON();
+        const category = filePath.split("/")[0];
+
+        this.commands.slash.set(meta.name, {
+          ...command,
+          meta: {
+            ...meta,
+            category,
+            ownerOnly: meta.ownerOnly || category === "Owner",
+          },
+        });
+        this.commands.slash_data.push(meta);
+
+        return meta.name || fileName;
+      },
+    });
   }
 
   async login() {
@@ -314,47 +273,36 @@ class Bot {
 
 // Main initialization function (ESM compatible)
 export default async function botInit(config) {
-  let shuttingDown = false;
-  const shutdown = async (bot, code, reason) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    if (reason) {
-      bot?.logger?.error("SYSTEM", `Shutdown requested: ${reason}`);
-    }
-
-    try {
-      if (bot?.client) {
-        await bot.client.destroy();
-      }
-    } catch (err) {
-      bot?.logger?.error(
-        "SYSTEM",
-        `Error while destroying client: ${err?.message || err}`,
-      );
-    } finally {
-      process.exitCode = code;
-    }
-  };
+  let bot = null;
+  const shutdown = createShutdown({
+    logger: {
+      error: (...args) => bot?.logger?.error?.(...args),
+    },
+  });
 
   if (!config) {
-    await shutdown(
-      null,
-      1,
-      "Please make sure to be coming from src/index.js ... :c",
-    );
+    await shutdown({
+      code: 1,
+      reason: "Please make sure to be coming from src/index.js ... :c",
+    });
     return null;
   }
 
   console.log("Starting the bot, please wait.");
-  const bot = new Bot(config);
+  bot = new Bot(config);
 
   try {
     bot.init();
     await bot.initUtils();
     await Promise.all([bot.initEvents(), bot.initCommands()]);
   } catch (err) {
-    await shutdown(bot, 1, err?.message || err);
+    await shutdown({
+      code: 1,
+      reason: err?.message || err,
+      cleanup: async () => {
+        if (bot?.client) await bot.client.destroy();
+      },
+    });
     return null;
   }
 
@@ -370,15 +318,31 @@ export default async function botInit(config) {
     // Note: Database functionality has been removed
 
     bot.functions = new bot.utils.functions(bot);
-    await bot.login();
+    if (process.env.NO_LOGIN === "true") {
+      bot.logger.warn("BOOTSTRAP", "NO_LOGIN=true; skipping Discord login.");
+    } else {
+      await bot.login();
+    }
   } catch (err) {
-    await shutdown(bot, 1, err?.message || err);
+    await shutdown({
+      code: 1,
+      reason: err?.message || err,
+      cleanup: async () => {
+        if (bot?.client) await bot.client.destroy();
+      },
+    });
     return null;
   }
 
   // Properly set up signal handlers with access to the bot instance
   const handleExitSignal = async (signal) => {
-    await shutdown(bot, 0, `Received ${signal} signal.`);
+    await shutdown({
+      code: 0,
+      reason: `Received ${signal} signal.`,
+      cleanup: async () => {
+        if (bot?.client) await bot.client.destroy();
+      },
+    });
   };
 
   for (const signal of ["SIGINT", "SIGTERM"]) {
@@ -391,7 +355,13 @@ export default async function botInit(config) {
       "SYSTEM",
       `Promise: ${promise} | Reason: ${reason?.message || reason}`,
     );
-    await shutdown(bot, 1, "Unhandled promise rejection.");
+    await shutdown({
+      code: 1,
+      reason: "Unhandled promise rejection.",
+      cleanup: async () => {
+        if (bot?.client) await bot.client.destroy();
+      },
+    });
   });
 
   return bot;
