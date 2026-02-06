@@ -31,7 +31,11 @@ const execute = async (bot, interaction) => {
   let embed = {
     author: {
       name: `Bomb sent by ${sender.username}`,
-      icon_url: sender.displayAvatarURL({ extension: "png", dynamic: true, size: 1024 }),
+      icon_url: sender.displayAvatarURL({
+        extension: "png",
+        dynamic: true,
+        size: 1024,
+      }),
     },
     color: bot.config.colors.blue,
     fields: [
@@ -40,17 +44,17 @@ const execute = async (bot, interaction) => {
     ],
   };
 
-  const url = `${bot.config.system.imgAPI}explosion`;
+  // Using a placeholder image service since imgAPI is no longer configured
+  const url = `https://api.popcat.xyz/explosion`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
-    } else {
-      const body = await res.json();
-      if (body.url != null) {
-        embed.image = { url: body.url };
-      }
+    }
+    const body = await res.json();
+    if (body?.url) {
+      embed.image = { url: body.url };
     }
   } catch (error) {
     bot.logger.error("SYS", `Failed fetch of image: ${url} | ${error.message}`);

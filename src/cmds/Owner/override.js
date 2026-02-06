@@ -26,13 +26,13 @@ const execute = async (bot, interaction) => {
   const action = interaction.options.getString("action");
 
   if (!action) {
-    const status = bot.client.bypassEnabled ?
-      `${bot.config.system.emotes.success} **Bypass is enabled!**` :
-      `${bot.config.system.emotes.error} **Bypass is disabled!**`;
+    const status = bot.client.bypassEnabled
+      ? `✅ **Bypass is enabled!**`
+      : `❌ **Bypass is disabled!**`;
 
     await interaction.reply(status);
   } else if (action === "enable" || action === "disable") {
-    bot.client.bypassEnabled = (action === "enable");
+    bot.client.bypassEnabled = action === "enable";
     await interaction.reply({
       content: `Bypass has been ${action}d!`,
       ephemeral: true,

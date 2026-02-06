@@ -23,28 +23,16 @@ const execute = async (bot, interaction) => {
 
   let description;
   if (interaction.user.id === target.id)
-    description = bot.lang.get(
-      `${INTERACTION_TYPE.toLowerCase()}.description_self`,
-      "en_US",
-      { EXECUTOR: interaction.user.toString() },
-    );
-  else if (interaction.user.id === bot.client.user.id)
-    description = bot.lang.get(
-      `${INTERACTION_TYPE.toLowerCase()}.description_bot`,
-      "en_US",
-      { EXECUTOR: interaction.user.toString() },
-    );
+    description = `${interaction.user.toString()} slaps themselves!`;
+  else if (bot.client.user.id === target.id)
+    description = `${interaction.user.toString()} tries to slap me, but I dodge!`;
   else
-    description = bot.lang.get(
-      `${INTERACTION_TYPE.toLowerCase()}.description`,
-      "en_US",
-      { EXECUTOR: interaction.user.toString(), TARGET: target.toString() },
-    );
+    description = `${interaction.user.toString()} slaps ${target.toString()}!`;
 
   await interaction.reply({
     embeds: [
       {
-        title: bot.lang.get(`${INTERACTION_TYPE.toLowerCase()}.title`, "en_US"),
+        title: `${INTERACTION_TYPE}!`,
         color: bot.config.colors.green,
         description,
         image: {

@@ -40,7 +40,7 @@ class interactionCreate {
         return interaction.reply({
           embeds: [
             {
-              title: `${bot.config.emojis.error} This command can only be ran by bot owners.`,
+              title: `❌ This command can only be ran by bot owners.`,
               color: bot.config.colors.red,
             },
           ],

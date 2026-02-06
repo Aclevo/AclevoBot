@@ -7,16 +7,6 @@
 /* Bun provides a global `path` object, but we can avoid importing it entirely by using URL resolution for our file path. */
 /* Bun automatically loads .env files, so no need for dotenv import */
 
-import { ShardingManager } from "discord.js";
-let emojisJson;
-try {
-  emojisJson = await import("../emojis.json", { assert: { type: "json" } });
-  emojisJson = emojisJson.default;
-} catch {
-  emojisJson = {};
-}
-if (!emojisJson) emojisJson = {};
-
 const config = {
   debug: process.env.BOT_DEBUG_ENABLED == "true",
   apis: {
@@ -37,20 +27,19 @@ const config = {
     // enablePrefixCommands: (process.env.COMMAND_PREFIX_ENABLED == "true"),
 
     // 3. Management
-    owners: process.env.OWNERS.includes(",")
-      ? process.env.OWNERS.split(",")
-      : [process.env.OWNERS],
+    owners: (() => {
+      const ownersRaw = process.env.OWNERS || "";
+      if (!ownersRaw) return [];
+      return ownersRaw
+        .split(",")
+        .map((owner) => owner.trim())
+        .filter(Boolean);
+    })(),
     // 4. Invites
     supportInviteBase: process.env.LINK_SUPPORT,
     botInviteBase: process.env.LINK_INVITE,
     botInvitePerms: process.env.PERMISSIONS || 8,
-  },
-  // == DATABASE
-  database: {
-    host: process.env.DB_HOST,
-    name: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    pass: process.env.DB_PASS,
+    cacheOnStart: process.env.BOT_CACHE_ON_START == "true",
   },
   // == COLORS
   colors: {
@@ -75,31 +64,24 @@ const config = {
           : { name, value: config.colors[name] };
     },
   },
-  // == EMOJIS
-  emojis: {
-    success: emojisJson.success || ":white_check_mark:",
-    warning: emojisJson.warning || ":warning:",
-    information: emojisJson.information || ":information_source:",
-    error: emojisJson.error || ":x:",
-    question: emojisJson.question || ":question:",
-  },
 };
 
 const botJSFile = new URL("./bot.js", import.meta.url).pathname;
 
-if (config.shardingEnabled) {
-  console.log("\x1b[31mPlease do not use sharing, yet.\x1b[0m");
-  process.exit(-1);
-  // console.log("Sharding is enabled, launching shards...");
-  // const manager = new ShardingManager(botJSFile, {
-  // 	token: config.token
-  // });
-  // manager.on('shardCreate', shard => {
-  // 	console.log(`Hello from Shard ${shard.id}!`);
-  // });
-  // manager.spawn();
-} else {
+const main = async () => {
+  if (config.shardingEnabled) {
+    throw new Error("Please do not use sharing, yet.");
+  }
+
   const botModule = await import(botJSFile);
   const botInit = botModule.default ?? botModule;
   await botInit(config);
+};
+
+try {
+  await main();
+} catch (err) {
+  const message = err?.message || String(err);
+  console.error("\x1b[31mShutdown requested: " + message + "\x1b[0m");
+  process.exitCode = 1;
 }

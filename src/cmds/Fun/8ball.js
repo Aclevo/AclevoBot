@@ -20,31 +20,40 @@ const meta = () => {
 const execute = async (bot, interaction) => {
   const question = interaction.options.getString("question");
 
-  const responses = bot.lang.get("8ballResponse", "en_US");
-  const responseKeys = Object.keys(responses);
-  const randomResponse = responseKeys[Math.floor(Math.random() * responseKeys.length)];
-  const responseColor = responses[randomResponse];
+  const responses = [
+    "Yes",
+    "No",
+    "Maybe",
+    "Definitely",
+    "Not a chance",
+    "Ask again later",
+    "Absolutely",
+    "Never",
+    "For sure",
+    "I wouldn't count on it",
+    "The stars say yes",
+    "Very doubtful",
+    "Most likely",
+    "Outlook good",
+    "Reply hazy, try again",
+  ];
 
-  const colorMap = {
-    red: bot.config.colors.red,
-    green: bot.config.colors.green,
-    yellow: bot.config.colors.yellow,
-    blue: bot.config.colors.blue,
-  };
+  const randomResponse =
+    responses[Math.floor(Math.random() * responses.length)];
 
   await interaction.reply({
     embeds: [
       {
         title: ":8ball: 8Ball",
-        color: colorMap[responseColor] || bot.config.colors.blue,
-        description: bot.lang.get("Some magic, please!", "en_US"),
+        color: bot.config.colors.blue,
+        description: "Consulting the magic 8-ball...",
         fields: [
           {
-            name: bot.lang.get("Question", "en_US"),
+            name: "Question",
             value: question,
           },
           {
-            name: bot.lang.get("Answer", "en_US"),
+            name: "Answer",
             value: randomResponse,
           },
         ],

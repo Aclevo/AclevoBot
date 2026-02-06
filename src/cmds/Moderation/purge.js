@@ -42,10 +42,12 @@ const execute = async (bot, interaction) => {
     await interaction.reply({
       embeds: [
         {
-          title: `${bot.config.system.emotes.success} Purge Successful!`,
+          title: `✅ Purge Successful!`,
           color: bot.config.colors.lime,
           description: `Successfully purged ${deletedMessages.size} spicy messages!`,
-          footer: { text: bot.config.system.footerText + " | This message will blow up in a few seconds." }
+          footer: {
+            text: "This message will disappear in a few seconds.",
+          },
         },
       ],
     });
@@ -62,10 +64,12 @@ const execute = async (bot, interaction) => {
     await interaction.reply({
       embeds: [
         {
-          title: `${bot.config.system.emotes.error} Uh-Oh! Something went wrong!`,
+          title: `❌ Uh-Oh! Something went wrong!`,
           color: bot.config.colors.red,
           description: `Could not purge messages due to: **${error.message}**`,
-          footer: { text: bot.config.system.footerText + " | An error occurred." }
+          footer: {
+            text: "An error occurred.",
+          },
         },
       ],
       ephemeral: true,

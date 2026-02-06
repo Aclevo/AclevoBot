@@ -36,7 +36,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.error} Cannot find the user in this server`,
+          title: `❌ Cannot find the user in this server`,
           color: bot.config.colors.red,
           description: "Make sure the user is in the same server as the bot.",
         },
@@ -51,7 +51,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.error} I don't have permission to ban members`,
+          title: `❌ I don't have permission to ban members`,
           color: bot.config.colors.red,
         },
       ],
@@ -64,7 +64,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.warning} I cannot ban this user`,
+          title: `⚠️ I cannot ban this user`,
           color: bot.config.colors.yellow,
           description:
             "The user may have a higher role or be the server owner.",
@@ -81,7 +81,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.success} Banned`,
+          title: `✅ Banned`,
           color: bot.config.colors.green,
           description: `${member} was successfully banned by ${interaction.user.tag}.`,
           fields: [
@@ -98,7 +98,7 @@ const execute = async (bot, interaction) => {
     return interaction.reply({
       embeds: [
         {
-          title: `${bot.config.emojis.error} Ban failed`,
+          title: `❌ Ban failed`,
           color: bot.config.colors.red,
           description: err.message,
         },

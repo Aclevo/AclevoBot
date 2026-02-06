@@ -3,8 +3,6 @@
  * (c) 2026 Aclevo
  */
 
-import { randomFillSync } from "crypto";
-
 const meta = () => {
   return {
     name: "Functions",
@@ -53,35 +51,35 @@ class Functions {
     return image ? attachment : "";
   };
 
-  fetchFromAPI = (endpointURL, options, extras) => {
-    if (!endpointURL) return "Missing argument endpointURL!";
-    return new Promise(async (resolve, reject) => {
-      let response = null;
-      if (!options) options = {};
-      if (!options.headers)
-        options.headers = {
-          "User-Agent": `${this.bot.config.discord.clientName} DiscordBot/${this.bot.version.getFull().replaceAll(" ", "_")}`,
-        };
-      try {
-        response = await this.bot.utils.fetch(
-          `${this.bot.config.apis.base}/${endpointURL}`,
-          options,
-        );
-        if (response.status != 200)
-          throw new Error("Server returned HTTP Status " + response.status);
-        resolve({
-          status: "OK",
-          data: await response.json(),
-          response,
-        });
-      } catch (err) {
-        reject({
-          status: "NOT OK",
-          message: err.message,
-          response,
-        });
-      }
-    });
+  fetchFromAPI = async (endpointURL, options, extras) => {
+    if (!endpointURL) throw new Error("Missing argument endpointURL!");
+
+    let response = null;
+    if (!options) options = {};
+    if (!options.headers)
+      options.headers = {
+        "User-Agent": `${this.bot.config.discord.clientName} DiscordBot/${this.bot.version.getFull().replaceAll(" ", "_")}`,
+      };
+
+    try {
+      response = await this.bot.utils.fetch(
+        `${this.bot.config.apis.base}/${endpointURL}`,
+        options,
+      );
+      if (response.status != 200)
+        throw new Error("Server returned HTTP Status " + response.status);
+
+      return {
+        status: "OK",
+        data: await response.json(),
+        response,
+      };
+    } catch (err) {
+      const error = new Error(err?.message || "Request failed");
+      error.status = "NOT OK";
+      error.response = response;
+      throw error;
+    }
   };
 
   convertTimestamp = (unix_timestamp, getDate, bigHour = false) => {
@@ -102,6 +100,26 @@ class Functions {
     return formattedTime;
   };
 
+  TStoHR = (milliseconds) => {
+    // Convert milliseconds to human-readable time format
+    let seconds = Math.floor(milliseconds / 1000);
+    let minutes = Math.floor(seconds / 60);
+    let hours = Math.floor(minutes / 60);
+    let days = Math.floor(hours / 24);
+
+    seconds %= 60;
+    minutes %= 60;
+    hours %= 24;
+
+    let timeString = "";
+    if (days > 0) timeString += `${days}d `;
+    if (hours > 0) timeString += `${hours}h `;
+    if (minutes > 0) timeString += `${minutes}m `;
+    if (seconds > 0) timeString += `${seconds}s`;
+
+    return timeString.trim() || "0s";
+  };
+
   genError = async (interaction, Ex) => {
     Ex.rawData = {
       interactionCommand: interaction.commandName,
@@ -119,7 +137,7 @@ class Functions {
     );
 
     const errEmbed = {
-      title: `${this.bot.config.emojis.error} An error occurred during execution of ${interaction.commandName}.`,
+      title: `❌ An error occurred during execution of ${interaction.commandName}.`,
       color: this.bot.config.colors.red,
       fields: [{ name: "Error", value: Ex.message || "Unknown Error" }],
     };

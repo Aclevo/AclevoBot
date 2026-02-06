@@ -3,12 +3,13 @@
  * (c) 2026 Aclevo
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { promises as fs } from "fs";
+import { join } from "path";
 
 const meta = () => {
   return {
     name: "Logger",
-    description: "Logs things to the CONSOLE.",
+    description: "Logs things to the CONSOLE and files.",
   };
 };
 
@@ -39,90 +40,127 @@ const knownTypes = {
   WARN: logColors.FgYellow,
   SUCCESS: logColors.FgGreen,
   DEBUG: logColors.FgMagenta,
+  LOG: logColors.FgWhite,
 };
 const knownLocations = {
   SYSTEM: logColors.FgGreen,
   BOOTSTRAP: logColors.FgMagenta,
-  DATABASE: logColors.FgYellow,
   DISCORD: logColors.FgCyan,
+};
+
+// Map log levels to console methods
+const consoleMethods = {
+  ERROR: "error",
+  WARN: "warn",
+  INFO: "info",
+  DEBUG: "debug",
+  LOG: "log",
+  SUCCESS: "log",
 };
 
 class Logger {
   constructor(bot) {
     this.bot = bot;
-    this.logLocation = new URL("../../logs", import.meta.url).pathname;
+    this.logLocation = join(process.cwd(), "logs");
+    this.writeQueue = Promise.resolve();
+    // Fire-and-forget; awaited inside logToFile.
+    this.ensureLogDir = fs.mkdir(this.logLocation, { recursive: true });
   }
 
   genDT = () => {
-    const pZ = (i) => {
-      return `${i < 10 ? "0" : ""}${i}`;
-    };
-    const currently = new Date();
+    const now = new Date();
+    const pad = (num) => num.toString().padStart(2, "0");
+
     return (
-      `${pZ(currently.getFullYear())}` +
-      "/" +
-      `${pZ(currently.getMonth() + 1)}` +
-      "/" +
-      `${pZ(currently.getDate())}` +
-      " " +
-      `${pZ(currently.getHours())}` +
-      ":" +
-      `${pZ(currently.getMinutes())}` +
-      ":" +
-      `${pZ(currently.getSeconds())}`
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
+      `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     );
   };
 
   logToFile = async (data) => {
-    // Use Bun's file operations for better performance
-    const logFilePath = `${this.logLocation}/${this.bot.uptime.startAt}-log.log`;
-    await Bun.write(Bun.file(logFilePath), `${data}\r\n`, { flag: "a+" });
+    const run = async () => {
+      try {
+        await this.ensureLogDir;
+
+        // Check if log file exists and rotate if too large (> 10MB)
+        const logFileName = `${this.bot.uptime?.startAt || "current"}-log.log`;
+        const logFilePath = join(this.logLocation, logFileName);
+
+        try {
+          const stats = await fs.stat(logFilePath);
+          if (stats.size > 10 * 1024 * 1024) {
+            // 10MB
+            const rotatedFileName = `${this.bot.uptime?.startAt || "current"}-log-${Date.now()}.log`;
+            const rotatedFilePath = join(this.logLocation, rotatedFileName);
+            await fs.rename(logFilePath, rotatedFilePath);
+          }
+        } catch (err) {
+          // Ignore missing file; rethrow others
+          if (err?.code !== "ENOENT") throw err;
+        }
+
+        await fs.appendFile(logFilePath, `${data}\n`);
+      } catch (err) {
+        console.error("Failed to write to log file:", err.message);
+      }
+    };
+
+    this.writeQueue = this.writeQueue.then(run, run);
+    return this.writeQueue;
   };
 
   genMsg = (type, location, msg) => {
-    const currently = this.genDT();
+    const timestamp = this.genDT();
     const typeColor = knownTypes[type] || logColors.FgWhite;
     const locationColor = knownLocations[location] || logColors.FgWhite;
 
-    console[type.toLowerCase()](
+    // Use appropriate console method based on log type
+    const consoleMethod = consoleMethods[type] || "log";
+
+    console[consoleMethod](
       `${logColors.Reset}[` +
-        `${logColors.FgCyan}${currently}` +
+        `${logColors.FgCyan}${timestamp}` +
         `${logColors.Reset} · ` +
         `${typeColor}${type}` +
         `${logColors.Reset} | ` +
         `${locationColor}${location}` +
-        `${logColors.Reset}]:` +
-        " " +
-        msg,
+        `${logColors.Reset}]: ` +
+        msg +
+        logColors.Reset,
     );
-    // Handle the async logToFile call
-    this.logToFile(
-      `[` +
-        `${currently}` +
-        ` · ` +
-        `${type}` +
-        ` | ` +
-        `${location}` +
-        `]:` +
-        " " +
-        msg,
-    ).catch(console.error); // Catch any errors from the async operation
+
+    // Log to file asynchronously
+    setImmediate(() => {
+      this.logToFile(`[${timestamp} · ${type} | ${location}]: ${msg}`).catch(
+        (err) => {
+          console.error("Error in logToFile:", err.message);
+        },
+      );
+    });
   };
 
-  log = (loc, msg) => {
-    this.genMsg("LOG", loc, msg);
+  log = (location, msg) => {
+    this.genMsg("LOG", location, msg);
   };
-  error = (loc, msg) => {
-    this.genMsg("ERROR", loc, msg);
+
+  error = (location, msg) => {
+    this.genMsg("ERROR", location, msg);
   };
-  info = (loc, msg) => {
-    this.genMsg("INFO", loc, msg);
+
+  info = (location, msg) => {
+    this.genMsg("INFO", location, msg);
   };
-  warn = (loc, msg) => {
-    this.genMsg("WARN", loc, msg);
+
+  warn = (location, msg) => {
+    this.genMsg("WARN", location, msg);
   };
-  debug = (loc, msg) => {
-    if (this.bot.config.debug) this.genMsg("DEBUG", loc, msg);
+
+  success = (location, msg) => {
+    this.genMsg("SUCCESS", location, msg);
+  };
+
+  debug = (location, msg) => {
+    if (this.bot.config?.debug) this.genMsg("DEBUG", location, msg);
   };
 }
 

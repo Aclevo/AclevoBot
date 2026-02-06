@@ -4,7 +4,13 @@
  */
 
 // Bun-native imports (no require())
-import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Collection,
+  Options,
+} from "discord.js";
 
 // Use import.meta.dir instead of __dirname
 const baseDir = import.meta.dir;
@@ -53,99 +59,139 @@ class Bot {
 
     const crash = (msg) => {
       this.logger.error("BOOTSTRAP", `Check failed while starting: ${msg}`);
-      process.exit(-1);
+      throw new Error(msg);
     };
 
     // Config validation (same logic, cleaner syntax)
-    if (typeof this.config.debug !== "boolean")
-      crash("Debug not set! Set it in .env under BOT_DEBUG_ENABLED");
+    const validations = [
+      {
+        check: () => typeof this.config.debug === "boolean",
+        error: "Debug not set! Set it in .env under BOT_DEBUG_ENABLED",
+      },
+      {
+        check: () => !!this.config.apis?.base,
+        error: "Base API not set! Set it in .env under API_BASE",
+      },
+      {
+        check: () => !!this.config.discord?.clientName,
+        error: "Bot Name not set! Set it in .env under BOT_CLIENT_NAME",
+      },
+      {
+        check: () => !!this.config.discord?.clientID,
+        error: "Bot ID not set! Set it in .env under BOT_CLIENT_ID",
+      },
+      {
+        check: () => !!this.config.discord?.clientSecret,
+        error: "Bot Secret not set! Set it in .env under BOT_CLIENT_SECRET",
+      },
+      {
+        check: () => !!this.config.discord?.token,
+        error: "Bot Token not set! Set it in .env under BOT_TOKEN",
+      },
+      {
+        check: () =>
+          typeof this.config.discord.enableSlashCommands === "boolean",
+        error:
+          "Enable Slash Commands not set! Set it in .env under COMMAND_SLASH_ENABLED",
+      },
+      {
+        check: () =>
+          !this.config.discord.enableSlashCommands ||
+          typeof this.config.discord.registerCommandsOnStart === "boolean",
+        error:
+          "Register Slash Commands On Start not set! Set it in .env under COMMAND_SLASH_REG_ON_START",
+      },
+    ];
 
-    if (!this.config.apis?.base)
-      crash("Base API not set! Set it in .env under API_BASE");
-
-    const { discord } = this.config;
-    if (!discord?.clientName)
-      crash("Bot Name not set! Set it in .env under BOT_CLIENT_NAME");
-    if (!discord?.clientID)
-      crash("Bot ID not set! Set it in .env under BOT_CLIENT_ID");
-    if (!discord?.clientSecret)
-      crash("Bot Secret not set! Set it in .env under BOT_CLIENT_SECRET");
-    if (!discord?.token)
-      crash("Bot Token not set! Set it in .env under BOT_TOKEN");
-    if (typeof discord.enableSlashCommands !== "boolean")
-      crash(
-        "Enable Slash Commands not set! Set it in .env under COMMAND_SLASH_ENABLED",
-      );
-    if (
-      discord.enableSlashCommands &&
-      typeof discord.registerCommandsOnStart !== "boolean"
-    )
-      crash(
-        "Register Slash Commands On Start not set! Set it in .env under COMMAND_SLASH_REG_ON_START",
-      );
+    for (const { check, error } of validations) {
+      if (!check()) crash(error);
+    }
 
     // Initialize Discord client
     this.client = new Client({
+      ws: {
+        compress: true,
+      },
       intents: [
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent,
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions,
       ],
-      partials: [
-        Partials.Channel,
-        Partials.Message,
-        Partials.User,
-        Partials.GuildMember,
-        Partials.Reaction,
-      ],
+      partials: [Partials.Channel],
+      // Keep caches bounded to reduce memory usage
+      makeCache: Options.cacheWithLimits({
+        MessageManager: 200,
+        ThreadManager: 50,
+      }),
+      sweepers: {
+        messages: {
+          interval: 600,
+          lifetime: 300,
+          filter: () => true, // Keep all messages within lifetime
+        },
+        threads: {
+          interval: 600,
+          lifetime: 900,
+          filter: () => true, // Keep all threads within lifetime
+        },
+        users: {
+          interval: 3600,
+          lifetime: 1800,
+          filter: () => true, // Keep all users within lifetime
+        },
+      },
     });
 
     return true;
   }
 
+  scanGlob(pattern, cwd) {
+    const glob = new Bun.Glob(pattern);
+    return glob.scanSync({ cwd });
+  }
+
   async initUtils() {
-    const importantUtils = ["db", "database", "func", "functions"];
+    const importantUtils = ["func", "functions"];
     this.utils = {};
 
     // Bun.Glob: Native, synchronous, and significantly faster than fs.readdirSync
-    const glob = new Bun.Glob("*.js");
     const utilsDir = `${this.baseDir}/utils`;
 
-    for (const file of glob.scanSync({ cwd: utilsDir })) {
-      const start = Date.now();
-      const filePath = `${utilsDir}/${file}`;
-      const fileName = file.replace(/\.js$/, "");
+    const files = this.scanGlob("*.js", utilsDir);
+    await Promise.all(
+      files.map(async (file) => {
+        const start = Date.now();
+        const filePath = `${utilsDir}/${file}`;
+        const fileName = file.replace(/\.js$/, "");
 
-      try {
-        // Native ESM dynamic import (Bun caches these efficiently)
-        const utilModule = await import(filePath);
-        const util = (utilModule.default ?? utilModule)(this, {});
-        const meta = util.meta();
+        try {
+          // Native ESM dynamic import (Bun caches these efficiently)
+          const utilModule = await import(filePath);
+          const util = (utilModule.default ?? utilModule)(this, {});
+          const meta = util.meta();
 
-        this.utils[fileName] = util.execute;
-        this.logger.debug(
-          "BOOTSTRAP",
-          `Load util ${meta.name}: OK in ${Date.now() - start}ms`,
-        );
-      } catch (err) {
-        this.logger.error(
-          "BOOTSTRAP",
-          `Load util ${fileName}: NOT OK - ${err.message}`,
-        );
-        console.error(err.stack);
-
-        if (importantUtils.includes(fileName)) {
+          this.utils[fileName] = util.execute;
+          this.logger.debug(
+            "BOOTSTRAP",
+            `Load util ${meta.name}: OK in ${Date.now() - start}ms`,
+          );
+        } catch (err) {
           this.logger.error(
             "BOOTSTRAP",
-            "Important util failed to load. Exiting...!",
+            `Load util ${fileName}: NOT OK - ${err.message}`,
           );
-          process.exit(-1);
+          console.error(err.stack);
+
+          if (importantUtils.includes(fileName)) {
+            this.logger.error(
+              "BOOTSTRAP",
+              "Important util failed to load. Exiting...!",
+            );
+            throw new Error("Important util failed to load");
+          }
         }
-      }
-    }
+      }),
+    );
 
     return true;
   }
@@ -154,40 +200,43 @@ class Bot {
     if (!this.client) throw new Error("Please init the client first.");
 
     this.events = new Collection();
-    const glob = new Bun.Glob("**/*.js");
     const evtsDir = `${this.baseDir}/evts`;
 
-    for (const filePath of glob.scanSync({ cwd: evtsDir })) {
-      const start = Date.now();
-      const absolutePath = `${evtsDir}/${filePath}`;
-      const fileName = filePath.replace(/\.js$/, "").split("/").pop();
+    const files = this.scanGlob("**/*.js", evtsDir);
+    await Promise.all(
+      files.map(async (filePath) => {
+        const start = Date.now();
+        const absolutePath = `${evtsDir}/${filePath}`;
+        const fileName = filePath.replace(/\.js$/, "").split("/").pop();
 
-      try {
-        // Clear module cache using Bun's native approach
-        if (this.functions?.clearCache) this.functions.clearCache(absolutePath);
+        try {
+          // Clear module cache using Bun's native approach
+          if (this.functions?.clearCache)
+            this.functions.clearCache(absolutePath);
 
-        const eventModule = await import(absolutePath);
-        const event = (eventModule.default ?? eventModule)();
-        const meta = event.meta();
+          const eventModule = await import(absolutePath);
+          const event = (eventModule.default ?? eventModule)();
+          const meta = event.meta();
 
-        if (meta.type === "rest") {
-          this.client.rest.on(meta.name, (...args) => event.run(this, args));
-        } else {
-          this.client.on(meta.name, (...args) => event.run(this, args));
+          if (meta.type === "rest") {
+            this.client.rest.on(meta.name, (...args) => event.run(this, args));
+          } else {
+            this.client.on(meta.name, (...args) => event.run(this, args));
+          }
+
+          this.logger.debug(
+            "BOOTSTRAP",
+            `Load event ${meta.name}: OK in ${Date.now() - start}ms`,
+          );
+        } catch (err) {
+          this.logger.error(
+            "BOOTSTRAP",
+            `Load event ${fileName}: NOT OK - ${err.message}`,
+          );
+          console.error(err.stack);
         }
-
-        this.logger.debug(
-          "BOOTSTRAP",
-          `Load event ${meta.name}: OK in ${Date.now() - start}ms`,
-        );
-      } catch (err) {
-        this.logger.error(
-          "BOOTSTRAP",
-          `Load event ${fileName}: NOT OK - ${err.message}`,
-        );
-        console.error(err.stack);
-      }
-    }
+      }),
+    );
 
     return true;
   }
@@ -200,53 +249,56 @@ class Bot {
       slash_data: [],
     };
 
-    const glob = new Bun.Glob("**/*.js");
     const cmdsDir = `${this.baseDir}/cmds`;
 
-    for (const filePath of glob.scanSync({ cwd: cmdsDir })) {
-      const start = Date.now();
-      const absolutePath = `${cmdsDir}/${filePath}`;
-      const fileName = filePath.replace(/\.js$/, "").split("/").pop();
+    const files = this.scanGlob("**/*.js", cmdsDir);
+    await Promise.all(
+      files.map(async (filePath) => {
+        const start = Date.now();
+        const absolutePath = `${cmdsDir}/${filePath}`;
+        const fileName = filePath.replace(/\.js$/, "").split("/").pop();
 
-      try {
-        if (this.functions?.clearCache) this.functions.clearCache(absolutePath);
+        try {
+          if (this.functions?.clearCache)
+            this.functions.clearCache(absolutePath);
 
-        const cmdModule = await import(absolutePath);
-        const command = (cmdModule.default ?? cmdModule)();
-        if (!("meta" in command) || !("execute" in command)) {
-          throw new Error('missing required "meta" or "execute" property');
+          const cmdModule = await import(absolutePath);
+          const command = (cmdModule.default ?? cmdModule)();
+          if (!("meta" in command) || !("execute" in command)) {
+            throw new Error('missing required "meta" or "execute" property');
+          }
+
+          const meta = command.meta().toJSON();
+          const category = filePath.split("/")[0];
+
+          this.commands.slash.set(meta.name, {
+            ...command,
+            meta: {
+              ...meta,
+              category,
+              ownerOnly: meta.ownerOnly || category === "Owner",
+            },
+          });
+          this.commands.slash_data.push(meta);
+
+          this.logger.debug(
+            "BOOTSTRAP",
+            `Load command ${meta.name}: OK in ${Date.now() - start}ms`,
+          );
+        } catch (err) {
+          this.logger.error(
+            "BOOTSTRAP",
+            `Load command ${fileName}: NOT OK - ${err.message}`,
+          );
+          console.error(err.stack);
         }
-
-        const meta = command.meta().toJSON();
-        const category = filePath.split("/")[0];
-
-        this.commands.slash.set(meta.name, {
-          ...command,
-          meta: {
-            ...meta,
-            category,
-            ownerOnly: meta.ownerOnly || category === "Owner",
-          },
-        });
-        this.commands.slash_data.push(meta);
-
-        this.logger.debug(
-          "BOOTSTRAP",
-          `Load command ${meta.name}: OK in ${Date.now() - start}ms`,
-        );
-      } catch (err) {
-        this.logger.error(
-          "BOOTSTRAP",
-          `Load command ${fileName}: NOT OK - ${err.message}`,
-        );
-        console.error(err.stack);
-      }
-    }
+      }),
+    );
 
     return true;
   }
 
-  login() {
+  async login() {
     return this.client
       .login(this.config.discord.token)
       .then(() => {
@@ -255,70 +307,92 @@ class Bot {
       })
       .catch((err) => {
         this.logger.error("BOOTSTRAP", `Login failed: ${err.message}`);
-        process.exit(-1);
+        throw err;
       });
   }
 }
 
 // Main initialization function (ESM compatible)
 export default async function botInit(config) {
+  let shuttingDown = false;
+  const shutdown = async (bot, code, reason) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    if (reason) {
+      bot?.logger?.error("SYSTEM", `Shutdown requested: ${reason}`);
+    }
+
+    try {
+      if (bot?.client) {
+        await bot.client.destroy();
+      }
+    } catch (err) {
+      bot?.logger?.error(
+        "SYSTEM",
+        `Error while destroying client: ${err?.message || err}`,
+      );
+    } finally {
+      process.exitCode = code;
+    }
+  };
+
   if (!config) {
-    console.error(
-      "\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m",
+    await shutdown(
+      null,
+      1,
+      "Please make sure to be coming from src/index.js ... :c",
     );
-    process.exit(-1);
+    return null;
   }
 
   console.log("Starting the bot, please wait.");
   const bot = new Bot(config);
 
-  await bot.init();
-  await bot.initUtils();
+  try {
+    bot.init();
+    await bot.initUtils();
+    await Promise.all([bot.initEvents(), bot.initCommands()]);
+  } catch (err) {
+    await shutdown(bot, 1, err?.message || err);
+    return null;
+  }
 
   const verifyUtil = (name) => {
     if (!bot.utils?.[name]) {
       bot.logger.error("BOOTSTRAP", `Failed to find ${name}. Exiting...!`);
-      process.exit(-1);
+      throw new Error(`Missing util: ${name}`);
     }
   };
 
-  verifyUtil("functions");
-  verifyUtil("database");
-
-  bot.functions = new bot.utils.functions(bot);
-
-  const db = new bot.utils.database(bot);
   try {
-    await db.init({
-      database: process.env.DB_NAME ?? "thecodingbot.sqlite",
-      dbCfg: {
-        dialect: "sqlite",
-        storage: process.env.DB_STORAGE ?? "./database.sqlite",
-        logging: (data) => bot.logger.debug("DATABASE", data),
-      },
-    });
-    bot.logger.info("DATABASE", "Database connected successfully");
-  } catch (error) {
-    bot.logger.warn("DATABASE", `Database connection failed: ${error.message}`);
-    bot.logger.warn(
-      "DATABASE",
-      "Bot will continue without database functionality",
+    verifyUtil("functions");
+    // Note: Database functionality has been removed
+
+    bot.functions = new bot.utils.functions(bot);
+    await bot.login();
+  } catch (err) {
+    await shutdown(bot, 1, err?.message || err);
+    return null;
+  }
+
+  // Properly set up signal handlers with access to the bot instance
+  const handleExitSignal = async (signal) => {
+    await shutdown(bot, 0, `Received ${signal} signal.`);
+  };
+
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => handleExitSignal(signal));
+  }
+
+  process.on("unhandledRejection", async (reason, promise) => {
+    bot.logger.error("SYSTEM", "Unhandled Rejection");
+    bot.logger.error(
+      "SYSTEM",
+      `Promise: ${promise} | Reason: ${reason?.message || reason}`,
     );
-    // Optionally disable features that require database
-    bot.db = null;
-  }
-
-  if (bot.utils.language) {
-    bot.lang = new bot.utils.language(bot);
-    if (bot.lang?.init) await bot.lang.init();
-  } else {
-    bot.logger.warn("SYSTEM", "Language utility not available");
-    bot.lang = null;
-  }
-
-  await bot.initEvents();
-  await bot.initCommands();
-  await bot.login();
+    await shutdown(bot, 1, "Unhandled promise rejection.");
+  });
 
   return bot;
 }
@@ -328,5 +402,5 @@ if (import.meta.main) {
   console.error(
     "\x1b[31mPlease make sure to be coming from src/index.js ... :c\x1b[0m",
   );
-  process.exit(-1);
+  process.exitCode = 1;
 }

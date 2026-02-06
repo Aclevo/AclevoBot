@@ -28,51 +28,63 @@ const meta = () => {
 
 const execute = async (bot, interaction) => {
   async function srHandle(type) {
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('agree')
-          .setLabel(`Yes, ${type.toLowerCase()} now`)
-          .setStyle('Success'),
-        new ButtonBuilder()
-          .setCustomId('disagree')
-          .setLabel('Nevermind')
-          .setStyle('Danger')
-      );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("agree")
+        .setLabel(`Yes, ${type.toLowerCase()} now`)
+        .setStyle("Success"),
+      new ButtonBuilder()
+        .setCustomId("disagree")
+        .setLabel("Nevermind")
+        .setStyle("Danger"),
+    );
 
     await interaction.reply({
       embeds: [
         {
-          title: `${bot.config.system.emotes.warning} **${type}**`,
+          title: `⚠️ **${type}**`,
           color: bot.config.colors.yellow,
           fields: [
-            { name: `Are you sure you wish for me to ${type}?`, value: `To confirm, use the buttons.` }
-          ]
+            {
+              name: `Are you sure you wish for me to ${type}?`,
+              value: `To confirm, use the buttons.`,
+            },
+          ],
         },
       ],
       components: [row],
     });
 
-    const filter = i => ["agree", "disagree"].includes(i.customId) && i.user.id === interaction.user.id;
-    const collector = interaction.channel.createMessageComponentCollector({ filter, max: 1, time: 90000 });
+    const filter = (i) =>
+      ["agree", "disagree"].includes(i.customId) &&
+      i.user.id === interaction.user.id;
+    const collector = interaction.channel.createMessageComponentCollector({
+      filter,
+      max: 1,
+      time: 90000,
+    });
 
-    collector.on('collect', async i => {
-      if (i.customId === 'agree') {
-        bot.config.system.commandState = type;
-        const actionDoing = (type === "Shutdown") ? "Shutting down" : "Restarting";
+    collector.on("collect", async (i) => {
+      if (i.customId === "agree") {
+        bot.commandState = type;
+        const actionDoing =
+          type === "Shutdown" ? "Shutting down" : "Restarting";
 
         await i.update({
           embeds: [
             {
-              title: `${bot.config.system.emotes.wait} **${actionDoing}**`,
+              title: `⏳ **${actionDoing}**`,
               color: bot.config.colors.blue,
-              description: `I'm ${type === "Shutdown" ? "shutting down and will be gone in a moment." : "restarting! Be back soon!"}`
+              description: `I'm ${type === "Shutdown" ? "shutting down and will be gone in a moment." : "restarting! Be back soon!"}`,
             },
           ],
           components: [],
         });
 
-        bot.logger.debug("SYS", `${bot.name} ${actionDoing.toLowerCase()} as of ${new Date()}.`);
+        bot.logger.debug(
+          "SYS",
+          `${bot.name} ${actionDoing.toLowerCase()} as of ${new Date()}.`,
+        );
 
         if (type === "Restart") {
           // Restart logic would go here
@@ -83,13 +95,13 @@ const execute = async (bot, interaction) => {
           console.log("Shutting down bot...");
           // Note: Actual shutdown logic would need to be implemented carefully
         }
-      } else if (i.customId === 'disagree') {
+      } else if (i.customId === "disagree") {
         await i.update({
           embeds: [
             {
-              title: `${bot.config.system.emotes.error} **${type}**`,
+              title: `❌ **${type}**`,
               color: bot.config.colors.red,
-              description: "Operation cancelled."
+              description: "Operation cancelled.",
             },
           ],
           components: [],
@@ -97,14 +109,14 @@ const execute = async (bot, interaction) => {
       }
     });
 
-    collector.on('end', async collected => {
+    collector.on("end", async (collected) => {
       if (collected.size < 1) {
         await interaction.editReply({
           embeds: [
             {
-              title: `${bot.config.system.emotes.error} **${type}**`,
+              title: `❌ **${type}**`,
               color: bot.config.colors.red,
-              description: "Operation timed out."
+              description: "Operation timed out.",
             },
           ],
           components: [],

@@ -76,10 +76,19 @@ class ready {
           `We have detected this bot is in no servers. So, here's your link to add it to the first server!\n\t${bot.config.discord.botInvite}`,
         );
       } else {
+        if (!bot.config.discord.cacheOnStart) {
+          bot.logger.info(
+            "SYSTEM",
+            "Startup cache disabled (BOT_CACHE_ON_START=false). Skipping full guild caching.",
+          );
+          return;
+        }
+
         let servCount = 0;
         const guildPromises = [];
 
-        for (const guild of bot.client.guilds.cache.values()) {
+        const guilds = Array.from(bot.client.guilds.cache.values());
+        for (const [index, guild] of guilds.entries()) {
           if (!guild.available) {
             bot.logger.info(
               "DISCORD",
@@ -88,15 +97,22 @@ class ready {
             continue;
           }
 
+          // Add delay every 10th guild to prevent rate limiting
+          const delay = index % 10 == 0 ? 1000 : 0;
+
           const promise = (async () => {
-            await bot.functions.sleep(servCount % 10 == 0 ? 1000 : 7270);
-            await guild.members.fetch();
-            await guild.channels.fetch();
-            await guild.roles.fetch();
+            if (delay > 0) await bot.functions.sleep(delay);
+
+            // Fetch all resources concurrently for each guild
+            await Promise.allSettled([
+              guild.members.fetch(),
+              guild.channels.fetch(),
+              guild.roles.fetch(),
+            ]);
 
             bot.logger.debug(
               "DISCORD",
-              `[${guild.id}] Cached ${guild.members.cache.size} members, ${guild.members.cache.size} channels, and ${guild.members.cache.size} roles.`,
+              `[${guild.id}] Cached ${guild.members.cache.size} members, ${guild.channels.cache.size} channels, and ${guild.roles.cache.size} roles.`,
             );
             servCount++;
           })();

@@ -208,12 +208,6 @@ const execute = async (bot, interaction) => {
       permissions: "BAN_MEMBERS",
     },
     {
-      name: "nsfw",
-      category: "NSFW",
-      description: "mmm the nice command ;)",
-      permissions: "DEFAULT",
-    },
-    {
       name: "eval",
       category: "Owner",
       description: "Evaluate JavaScript code",
@@ -253,7 +247,7 @@ const execute = async (bot, interaction) => {
       await interaction.reply({
         embeds: [
           {
-            title: `${bot.config.system.emotes.information} Help for ${command.name}`,
+            title: `Help for ${command.name}`,
             color: bot.config.colors.lime,
             description: command.description,
             fields: fields,
@@ -277,7 +271,7 @@ const execute = async (bot, interaction) => {
       await interaction.reply({
         embeds: [
           {
-            title: `${bot.config.system.emotes.information} ${bot.name} Help`,
+            title: `ℹ️ ${bot.name} Help`,
             color: bot.config.colors.blue,
             description: `The command or category '${temp}' is invalid.\nYeaaah we got it! (Help! Help!)`,
             fields: fields,
@@ -302,7 +296,7 @@ const execute = async (bot, interaction) => {
     await interaction.reply({
       embeds: [
         {
-          title: `${bot.config.system.emotes.information} ${bot.name} Help`,
+          title: `ℹ️ Help`,
           color: bot.config.colors.blue,
           description: `Yeaaah we got it! (Help! Help!)`,
           fields: fields,

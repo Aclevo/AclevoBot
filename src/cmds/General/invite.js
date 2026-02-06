@@ -15,16 +15,12 @@ const execute = async (bot, interaction) => {
   await interaction.reply({
     embeds: [
       {
-        title: bot.lang.get("invite.title", "en_US"),
+        title: "Invite Me!",
         color: bot.config.colors.green,
-        description: bot.lang.get("invite.description", "en_US", {
-          INVITELINK: bot.config.discord.botInvite,
-        }),
+        description: `Want to add me to your server? Great!\n\n[Click here to invite me!](${bot.config.discord.botInviteBase})\n\nNeed help? Join our [support server](${bot.config.discord.supportInviteBase})!`,
       },
     ],
   });
-
-  // `${bot.lang.get("hello_world.description", "en_US", { FULLVER: bot.version.getFull() })}`);
 };
 
 export default (app) => ({

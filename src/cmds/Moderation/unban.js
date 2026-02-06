@@ -32,7 +32,7 @@ const execute = async (bot, interaction) => {
     return await interaction.reply({
       embeds: [
         {
-          title: `${bot.config.system.emotes.error} Unban Error!`,
+          title: `❌ Unban Error!`,
           color: bot.config.colors.red,
           description: msg ? msg : "Missing error data??",
         },
@@ -72,7 +72,7 @@ const execute = async (bot, interaction) => {
     await interaction.guild.members.unban(user, unbanReason);
 
     const embed = {
-      title: `${bot.config.system.emotes.success} Unban Success!`,
+      title: `✅ Unban Success!`,
       color: bot.config.colors.lime,
       description: `Unhammered the user, ${user.username}!`,
       fields: [],

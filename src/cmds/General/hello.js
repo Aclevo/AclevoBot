@@ -13,7 +13,7 @@ const meta = () => {
 
 const execute = async (bot, interaction) => {
   await interaction.reply(
-    `${bot.lang.get("hello_world.description", "en_US", { FULLVER: bot.version.getFull() })}`,
+    `Hello World! This is AclevoBot v${bot.version.getFull()}. I'm a multipurpose Discord bot made to serve all your needs!`,
   );
 };
 

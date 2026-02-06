@@ -17,66 +17,69 @@ const Logger = (loggerModule.default ?? loggerModule)();
 self.logger = new Logger.execute(self);
 
 const sayErrorAndCrash = (errMsg) => {
-  // Say error
   self.logger.error("BOOTSTRAP", `Check failed while starting: ${errMsg}`);
-  // And crash.
-  process.exit(-1);
+  throw new Error(errMsg);
 };
-if (
-  !self.config.discord ||
-  !self.config.discord == null ||
-  self.config.discord == ""
-)
-  return sayErrorAndCrash("Discord data or config loader broken.");
-if (
-  !self.config.discord.token ||
-  self.config.discord.token == null ||
-  self.config.discord.token == ""
-)
-  return sayErrorAndCrash("Bot Token not set! Set it in .env under BOT_TOKEN");
 
-self.logger.debug("BOOTSTRAP", "Creating bot client...");
-self.client = new Client({
-  intents: [],
-  partials: [],
-});
+const main = async () => {
+  if (!self.config.discord) {
+    sayErrorAndCrash("Discord data or config loader broken.");
+  }
+  if (!self.config.discord.token) {
+    sayErrorAndCrash("Bot Token not set! Set it in .env under BOT_TOKEN");
+  }
 
-self.logger.debug("BOOTSTRAP", "Registering events...");
-self.client.on("ready", async () => {
-  self.logger.info("SYSTEM", `Logged in as ${self.client.user.tag}`);
+  self.logger.debug("BOOTSTRAP", "Creating bot client...");
+  self.client = new Client({
+    intents: [],
+    partials: [],
+  });
 
-  // Do the dirty work.
-  const rest = new REST({ version: "10" }).setToken(self.config.discord.token);
+  self.logger.debug("BOOTSTRAP", "Registering events...");
+  self.client.on("ready", async () => {
+    self.logger.info("SYSTEM", `Logged in as ${self.client.user.tag}`);
 
-  for (const guild of self.client.guilds.cache.values()) {
+    // Do the dirty work.
+    const rest = new REST({ version: "10" }).setToken(
+      self.config.discord.token,
+    );
+
+    for (const guild of self.client.guilds.cache.values()) {
+      await rest
+        .put(Routes.applicationGuildCommands(self.client.user.id, guild.id), {
+          body: [],
+        })
+        .then(() => {
+          self.logger.info(
+            "DISCORD",
+            `Successfully deleted all application commands for ${guild.id}!`,
+          );
+        });
+    }
+
     await rest
-      .put(Routes.applicationGuildCommands(self.client.user.id, guild.id), {
-        body: [],
-      })
+      .put(Routes.applicationCommands(self.client.user.id), { body: [] })
       .then(() => {
         self.logger.info(
           "DISCORD",
-          `Successfully deleted all application commands for ${guild.id}!`,
+          "Successfully deleted all application commands!",
         );
       });
-  }
 
-  await rest
-    .put(Routes.applicationCommands(self.client.user.id), { body: [] })
-    .then(() => {
-      self.logger.info(
-        "DISCORD",
-        "Successfully deleted all application commands!",
-      );
-    });
+    self.logger.debug("DISCORD", "Logging out...");
+    await self.client.destroy();
 
-  self.logger.debug("DISCORD", "Logging out...");
-  self.client.destroy();
+    self.logger.debug("SYSTEM", "Exiting...");
+    process.exitCode = 0;
+  });
 
-  self.logger.debug("SYSTEM", "Exiting...");
-  process.exit(0);
-});
+  await self.client.login(self.config.discord.token);
+};
 
-self.client.login(self.config.discord.token).catch((err) => {
-  self.logger.error("SYSTEM", `Failed to login! - ${err}`);
-});
+try {
+  await main();
+} catch (err) {
+  const message = err?.message || String(err);
+  self.logger.error("SYSTEM", `Shutdown requested: ${message}`);
+  process.exitCode = 1;
+}

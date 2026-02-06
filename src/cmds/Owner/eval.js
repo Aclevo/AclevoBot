@@ -27,7 +27,7 @@ const execute = async (bot, interaction) => {
       return await interaction.reply({
         embeds: [
           {
-            title: bot.lang.get("eval.title", "en_US"),
+            title: "Eval Result",
             color: bot.config.colors.green,
             description: "```js\n" + (evaluated == "" ? "" : evaluated) + "```",
           },
@@ -38,7 +38,7 @@ const execute = async (bot, interaction) => {
     return await interaction.reply({
       embeds: [
         {
-          title: bot.lang.get("eval.title", "en_US"),
+          title: "Eval Result",
           color: bot.config.colors.red,
           description: "```js\n" + Ex.stack + "```",
         },

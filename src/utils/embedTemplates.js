@@ -256,7 +256,7 @@ class EmbedTemplates {
         const embed = new EmbedBuilder()
           .setTitle(title)
           .setDescription(description)
-          .setColor(bot.config.colors[color])
+          .setColor(color)
           .setFooter({
             text: `Server: ${emoji.guild.name}`,
             iconURL: emoji.guild.iconURL({ dynamic: true }) || undefined,
