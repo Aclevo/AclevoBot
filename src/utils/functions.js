@@ -30,6 +30,28 @@ class Functions {
     return new Date().getTime() * 10000 + 621355968000000000;
   };
 
+  getLogChannel = (guild) => {
+    if (!guild) return null;
+    const cache = this.bot.runtime?.logChannelCache;
+
+    if (cache) {
+      const cachedId = cache.get(guild.id);
+      if (cachedId) {
+        const cached = guild.channels.cache.get(cachedId);
+        if (cached && cached.name === "aclevo-bot-logs" && cached.type === 0) {
+          return cached;
+        }
+        cache.delete(guild.id);
+      }
+    }
+
+    const found = guild.channels.cache.find(
+      (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0,
+    );
+    if (cache && found) cache.set(guild.id, found.id);
+    return found || null;
+  };
+
   removeFromArr = (arr, value) => {
     return arr.filter((e) => e !== value);
   };

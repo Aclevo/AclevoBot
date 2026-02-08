@@ -44,10 +44,7 @@ export default defineEvent({
   
       // Try to send the goodbye message to the aclevo-bot-logs channel
       try {
-        // Look for the hardcoded "aclevo-bot-logs" channel
-        const logChannel = member.guild.channels.cache.find(
-          (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-        );
+        const logChannel = bot.functions.getLogChannel(member.guild);
   
         // Send the goodbye message if we found the channel
         if (logChannel) {

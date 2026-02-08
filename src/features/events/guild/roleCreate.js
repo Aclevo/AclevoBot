@@ -31,31 +31,27 @@ export default defineEvent({
           name: "Mentionable",
           value: role.mentionable ? "Yes" : "No",
           inline: true,
-          },
-          { name: "Hoisted", value: role.hoist ? "Yes" : "No", inline: true },
-        )
-        .setFooter({
-          text: `Server: ${role.guild.name}`,
-          iconURL: role.guild.iconURL({ dynamic: true }) || undefined,
-        })
-        .setTimestamp();
-  
-      // Try to send the role creation message to the aclevo-bot-logs channel
-      try {
-        // Look for the hardcoded "aclevo-bot-logs" channel
-        const logChannel = role.guild.channels.cache.find(
-          (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-        );
-  
-        if (logChannel) {
-          await logChannel.send({ embeds: [roleEmbed] });
-        }
-      } catch (error) {
-        bot.logger.warn(
-          "DISCORD",
-          `Could not send role creation message: ${error.message}`,
-        );
+        },
+        { name: "Hoisted", value: role.hoist ? "Yes" : "No", inline: true },
+      )
+      .setFooter({
+        text: `Server: ${role.guild.name}`,
+        iconURL: role.guild.iconURL({ dynamic: true }) || undefined,
+      })
+      .setTimestamp();
+
+    // Try to send the role creation message to the aclevo-bot-logs channel
+    try {
+      const logChannel = bot.functions.getLogChannel(role.guild);
+
+      if (logChannel) {
+        await logChannel.send({ embeds: [roleEmbed] });
       }
-    
+    } catch (error) {
+      bot.logger.warn(
+        "DISCORD",
+        `Could not send role creation message: ${error.message}`,
+      );
+    }
   },
 });

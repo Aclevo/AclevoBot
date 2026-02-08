@@ -28,37 +28,33 @@ export default defineEvent({
           name: "Account Created",
           value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
           inline: true,
-          },
-          {
-            name: "Member Count",
-            value: `${member.guild.memberCount} members`,
-            inline: true,
-          },
-        )
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({
-          text: `ID: ${member.user.id}`,
-          iconURL: member.guild.iconURL({ dynamic: true }) || undefined,
-        })
-        .setTimestamp();
-  
-      // Try to send the welcome message to the aclevo-bot-logs channel
-      try {
-        // Look for the hardcoded "aclevo-bot-logs" channel
-        const logChannel = member.guild.channels.cache.find(
-          (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-        );
-  
-        // Send the welcome message if we found the channel
-        if (logChannel) {
-          await logChannel.send({ embeds: [welcomeEmbed] });
-        }
-      } catch (error) {
-        bot.logger.warn(
-          "DISCORD",
-          `Could not send welcome message: ${error.message}`,
-        );
+        },
+        {
+          name: "Member Count",
+          value: `${member.guild.memberCount} members`,
+          inline: true,
+        },
+      )
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+      .setFooter({
+        text: `ID: ${member.user.id}`,
+        iconURL: member.guild.iconURL({ dynamic: true }) || undefined,
+      })
+      .setTimestamp();
+
+    // Try to send the welcome message to the aclevo-bot-logs channel
+    try {
+      const logChannel = bot.functions.getLogChannel(member.guild);
+
+      // Send the welcome message if we found the channel
+      if (logChannel) {
+        await logChannel.send({ embeds: [welcomeEmbed] });
       }
-    
+    } catch (error) {
+      bot.logger.warn(
+        "DISCORD",
+        `Could not send welcome message: ${error.message}`,
+      );
+    }
   },
 });

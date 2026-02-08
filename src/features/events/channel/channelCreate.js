@@ -45,30 +45,26 @@ export default defineEvent({
           name: "Created",
           value: `<t:${Math.floor(channel.createdTimestamp / 1000)}:R>`,
           inline: true,
-          },
-        )
-        .setFooter({
-          text: `Server: ${channel.guild.name}`,
-          iconURL: channel.guild.iconURL({ dynamic: true }) || undefined,
-        })
-        .setTimestamp();
-  
-      // Try to send the channel creation message to the aclevo-bot-logs channel
-      try {
-        // Look for the hardcoded "aclevo-bot-logs" channel
-        const logChannel = channel.guild.channels.cache.find(
-          (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-        );
-  
-        if (logChannel) {
-          await logChannel.send({ embeds: [channelEmbed] });
-        }
-      } catch (error) {
-        bot.logger.warn(
-          "DISCORD",
-          `Could not send channel creation message: ${error.message}`,
-        );
+        },
+      )
+      .setFooter({
+        text: `Server: ${channel.guild.name}`,
+        iconURL: channel.guild.iconURL({ dynamic: true }) || undefined,
+      })
+      .setTimestamp();
+
+    // Try to send the channel creation message to the aclevo-bot-logs channel
+    try {
+      const logChannel = bot.functions.getLogChannel(channel.guild);
+
+      if (logChannel) {
+        await logChannel.send({ embeds: [channelEmbed] });
       }
-    
+    } catch (error) {
+      bot.logger.warn(
+        "DISCORD",
+        `Could not send channel creation message: ${error.message}`,
+      );
+    }
   },
 });

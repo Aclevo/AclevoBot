@@ -32,6 +32,12 @@ class Bot {
     this.baseDir = baseDir;
     this.config = config;
     this.client = null;
+    this.runtime = {
+      logChannelCache: new Map(),
+      serverInfoCache: new Map(),
+      timers: new Set(),
+      shuttingDown: false,
+    };
 
     this.version = {
       major: 1,
@@ -124,20 +130,22 @@ class Bot {
       makeCache: Options.cacheWithLimits({
         MessageManager: 200,
         ThreadManager: 50,
+        GuildMemberManager: Number(process.env.BOT_MEMBER_CACHE_LIMIT) || 2000,
+        UserManager: Number(process.env.BOT_USER_CACHE_LIMIT) || 2000,
       }),
       sweepers: {
         messages: {
-          interval: 600,
+          interval: 900,
           lifetime: 300,
           filter: () => true, // Keep all messages within lifetime
         },
         threads: {
-          interval: 600,
+          interval: 900,
           lifetime: 900,
           filter: () => true, // Keep all threads within lifetime
         },
         users: {
-          interval: 3600,
+          interval: 7200,
           lifetime: 1800,
           filter: () => true, // Keep all users within lifetime
         },

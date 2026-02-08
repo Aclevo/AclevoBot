@@ -13,6 +13,12 @@ export default defineEvent({
     const [guild] = params;
 
     bot.logger.info("DISCORD", `Left guild: ${guild.name} (${guild.id})`);
+    if (bot.runtime?.logChannelCache) {
+      bot.runtime.logChannelCache.delete(guild.id);
+    }
+    if (bot.runtime?.serverInfoCache) {
+      bot.runtime.serverInfoCache.delete(guild.id);
+    }
 
     // Create a leave embed
     const leaveEmbed = new EmbedBuilder()
@@ -42,10 +48,7 @@ export default defineEvent({
 
     // Try to send the leave message to the aclevo-bot-logs channel
     try {
-      // Look for the hardcoded "aclevo-bot-logs" channel
-      const logChannel = guild.channels.cache.find(
-        (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-      );
+      const logChannel = bot.functions.getLogChannel(guild);
 
       if (logChannel) {
         await logChannel.send({ embeds: [leaveEmbed] });

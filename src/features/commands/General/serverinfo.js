@@ -27,46 +27,63 @@ const execute = async (bot, interaction) => {
     const members = {
       total: guild.memberCount,
     };
-    // Count users and bots separately - only fetch if needed to avoid performance issues on large servers
-    // For most guilds, we can use the cached member count which is already split between users and bots
-    try {
-      // Attempt to fetch a limited number of members to get an accurate count
-      // Only fetch if the guild is relatively small to avoid rate limits
-      if (guild.memberCount <= 500) {
-        const allMembers = await guild.members.fetch();
-        members.users = allMembers.filter((member) => !member.user.bot).size;
-        members.bots = members.total - members.users;
-      } else {
-        // For larger guilds, estimate counts from the partial cache
-        // This is less accurate but much more performant
-        const cachedMembers = guild.members.cache;
-        const cachedUsers = cachedMembers.filter(
-          (member) => !member.user.bot,
-        ).size;
-        const cachedBots = cachedMembers.filter(
-          (member) => member.user.bot,
-        ).size;
-
-        // Estimate the full counts proportionally
-        if (cachedMembers.size > 0) {
-          const userRatio = cachedUsers / cachedMembers.size;
-          const botRatio = cachedBots / cachedMembers.size;
-          members.users = Math.round(guild.memberCount * userRatio);
-          members.bots = guild.memberCount - members.users;
+    const cacheTtlMs =
+      Number(process.env.BOT_SERVERINFO_TTL_MS) || 5 * 60 * 1000;
+    const cache = bot.runtime?.serverInfoCache;
+    const cached = cache?.get(guild.id);
+    if (cached && Date.now() - cached.at < cacheTtlMs) {
+      members.users = cached.users;
+      members.bots = cached.bots;
+    } else {
+      // Count users and bots separately - only fetch if needed to avoid performance issues on large servers
+      // For most guilds, we can use the cached member count which is already split between users and bots
+      try {
+        // Attempt to fetch a limited number of members to get an accurate count
+        // Only fetch if the guild is relatively small to avoid rate limits
+        if (guild.memberCount <= 500) {
+          const allMembers = await guild.members.fetch();
+          members.users = allMembers.filter((member) => !member.user.bot).size;
+          members.bots = members.total - members.users;
         } else {
-          // Fallback if no members are cached
-          members.users = guild.memberCount; // Assume mostly users if no data
-          members.bots = 0;
+          // For larger guilds, estimate counts from the partial cache
+          // This is less accurate but much more performant
+          const cachedMembers = guild.members.cache;
+          const cachedUsers = cachedMembers.filter(
+            (member) => !member.user.bot,
+          ).size;
+          const cachedBots = cachedMembers.filter(
+            (member) => member.user.bot,
+          ).size;
+
+          // Estimate the full counts proportionally
+          if (cachedMembers.size > 0) {
+            const userRatio = cachedUsers / cachedMembers.size;
+            const botRatio = cachedBots / cachedMembers.size;
+            members.users = Math.round(guild.memberCount * userRatio);
+            members.bots = guild.memberCount - members.users;
+          } else {
+            // Fallback if no members are cached
+            members.users = guild.memberCount; // Assume mostly users if no data
+            members.bots = 0;
+          }
         }
+      } catch (error) {
+        // If fetching fails, use the guild's approximate member count
+        bot.logger.warn(
+          "SERVERINFO",
+          `Could not fetch members for guild ${guild.id}: ${error.message}`,
+        );
+        members.users = guild.approximateMemberCount || guild.memberCount;
+        members.bots = 0; // Default assumption
       }
-    } catch (error) {
-      // If fetching fails, use the guild's approximate member count
-      bot.logger.warn(
-        "SERVERINFO",
-        `Could not fetch members for guild ${guild.id}: ${error.message}`,
-      );
-      members.users = guild.approximateMemberCount || guild.memberCount;
-      members.bots = 0; // Default assumption
+
+      if (cache) {
+        cache.set(guild.id, {
+          at: Date.now(),
+          users: members.users,
+          bots: members.bots,
+        });
+      }
     }
 
     let embed = {

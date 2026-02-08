@@ -29,32 +29,28 @@ export default defineEvent({
           name: "Animated",
           value: emoji.animated ? "Yes" : "No",
           inline: true,
-          },
-          { name: "URL", value: `[Link](${emoji.url})`, inline: true },
-        )
-        .setThumbnail(emoji.url) // Show the emoji as thumbnail
-        .setFooter({
-          text: `Server: ${emoji.guild.name}`,
-          iconURL: emoji.guild.iconURL({ dynamic: true }) || undefined,
-        })
-        .setTimestamp();
-  
-      // Try to send the emoji creation message to the aclevo-bot-logs channel
-      try {
-        // Look for the hardcoded "aclevo-bot-logs" channel
-        const logChannel = emoji.guild.channels.cache.find(
-          (ch) => ch.name === "aclevo-bot-logs" && ch.type === 0, // Text channel
-        );
-  
-        if (logChannel) {
-          await logChannel.send({ embeds: [emojiEmbed] });
-        }
-      } catch (error) {
-        bot.logger.warn(
-          "DISCORD",
-          `Could not send emoji creation message: ${error.message}`,
-        );
+        },
+        { name: "URL", value: `[Link](${emoji.url})`, inline: true },
+      )
+      .setThumbnail(emoji.url) // Show the emoji as thumbnail
+      .setFooter({
+        text: `Server: ${emoji.guild.name}`,
+        iconURL: emoji.guild.iconURL({ dynamic: true }) || undefined,
+      })
+      .setTimestamp();
+
+    // Try to send the emoji creation message to the aclevo-bot-logs channel
+    try {
+      const logChannel = bot.functions.getLogChannel(emoji.guild);
+
+      if (logChannel) {
+        await logChannel.send({ embeds: [emojiEmbed] });
       }
-    
+    } catch (error) {
+      bot.logger.warn(
+        "DISCORD",
+        `Could not send emoji creation message: ${error.message}`,
+      );
+    }
   },
 });

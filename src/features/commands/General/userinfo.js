@@ -29,13 +29,15 @@ const execute = async (bot, interaction) => {
     };
 
     function getJoinPosition(ID) {
-      const memberJoins = [...interaction.guild.members.cache.values()].sort(
-        (a, b) => a.joinedAt - b.joinedAt,
-      );
-      for (let i = 0; i < memberJoins.length; i++) {
-        if (memberJoins[i].id === ID) return i;
+      const target = interaction.guild.members.cache.get(ID);
+      if (!target?.joinedAt) return null;
+      let earlier = 0;
+      for (const member of interaction.guild.members.cache.values()) {
+        if (member.joinedAt && member.joinedAt < target.joinedAt) {
+          earlier++;
+        }
       }
-      return null;
+      return earlier;
     }
 
     try {
