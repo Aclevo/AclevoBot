@@ -17,6 +17,18 @@ export default defineEvent({
       `Role deleted: ${role.name} in guild ${role.guild.name} (${role.guild.id})`,
     );
 
+    let deleteEntry = null;
+    if (bot.utils.auditLog) {
+      deleteEntry = await bot.utils.auditLog.fetchLatest(
+        role.guild,
+        "RoleDelete",
+        role.id,
+      );
+      if (deleteEntry && Date.now() - deleteEntry.createdTimestamp > 10000) {
+        deleteEntry = null;
+      }
+    }
+
     // Create a role deletion embed
     const roleEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.red) // Red for deletion
@@ -39,6 +51,21 @@ export default defineEvent({
         iconURL: role.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (deleteEntry?.executor) {
+      roleEmbed.addFields({
+        name: "Deleted By",
+        value: `<@${deleteEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (deleteEntry?.reason) {
+      roleEmbed.addFields({
+        name: "Reason",
+        value: deleteEntry.reason,
+      });
+    }
 
     // Try to send the role deletion message to the aclevo-bot-logs channel
     try {

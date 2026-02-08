@@ -17,6 +17,18 @@ export default defineEvent({
       `Emoji deleted: ${emoji.name} in guild ${emoji.guild.name} (${emoji.guild.id})`,
     );
 
+    let deleteEntry = null;
+    if (bot.utils.auditLog) {
+      deleteEntry = await bot.utils.auditLog.fetchLatest(
+        emoji.guild,
+        "EmojiDelete",
+        emoji.id,
+      );
+      if (deleteEntry && Date.now() - deleteEntry.createdTimestamp > 10000) {
+        deleteEntry = null;
+      }
+    }
+
     // Create an emoji deletion embed
     const emojiEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.red) // Red for deletion
@@ -36,6 +48,21 @@ export default defineEvent({
         iconURL: emoji.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (deleteEntry?.executor) {
+      emojiEmbed.addFields({
+        name: "Deleted By",
+        value: `<@${deleteEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (deleteEntry?.reason) {
+      emojiEmbed.addFields({
+        name: "Reason",
+        value: deleteEntry.reason,
+      });
+    }
 
     // Try to send the emoji deletion message to the aclevo-bot-logs channel
     try {

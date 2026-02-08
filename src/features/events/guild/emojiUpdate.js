@@ -11,6 +11,18 @@ export default defineEvent({
       `Emoji updated: ${newEmoji.name} in guild ${newEmoji.guild.name} (${newEmoji.guild.id})`,
     );
 
+    let updateEntry = null;
+    if (bot.utils.auditLog) {
+      updateEntry = await bot.utils.auditLog.fetchLatest(
+        newEmoji.guild,
+        "EmojiUpdate",
+        newEmoji.id,
+      );
+      if (updateEntry && Date.now() - updateEntry.createdTimestamp > 10000) {
+        updateEntry = null;
+      }
+    }
+
     const updateEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.yellow)
       .setTitle("Emoji Updated")
@@ -29,6 +41,21 @@ export default defineEvent({
         iconURL: newEmoji.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (updateEntry?.executor) {
+      updateEmbed.addFields({
+        name: "Updated By",
+        value: `<@${updateEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (updateEntry?.reason) {
+      updateEmbed.addFields({
+        name: "Reason",
+        value: updateEntry.reason,
+      });
+    }
 
     if (oldEmoji.name !== newEmoji.name) {
       updateEmbed.addFields(

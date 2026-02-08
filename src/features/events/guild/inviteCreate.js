@@ -14,6 +14,17 @@ export default defineEvent({
     const formatDate = (date) =>
       date ? `<t:${Math.floor(date.getTime() / 1000)}:R>` : "Never";
 
+    let createEntry = null;
+    if (bot.utils.auditLog) {
+      createEntry = await bot.utils.auditLog.fetchLatest(
+        invite.guild,
+        "InviteCreate",
+      );
+      if (createEntry && Date.now() - createEntry.createdTimestamp > 10000) {
+        createEntry = null;
+      }
+    }
+
     const inviteEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.green)
       .setTitle("Invite Created")
@@ -44,6 +55,21 @@ export default defineEvent({
         iconURL: invite.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (createEntry?.executor) {
+      inviteEmbed.addFields({
+        name: "Created By",
+        value: `<@${createEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (createEntry?.reason) {
+      inviteEmbed.addFields({
+        name: "Reason",
+        value: createEntry.reason,
+      });
+    }
 
     try {
       const logChannel = bot.functions.getLogChannel(invite.guild);

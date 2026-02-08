@@ -32,6 +32,18 @@ export default defineEvent({
     const channelTypeName =
       channelTypeMap[channel.type] || "Unknown Channel Type";
 
+    let deleteEntry = null;
+    if (bot.utils.auditLog) {
+      deleteEntry = await bot.utils.auditLog.fetchLatest(
+        channel.guild,
+        "ChannelDelete",
+        channel.id,
+      );
+      if (deleteEntry && Date.now() - deleteEntry.createdTimestamp > 10000) {
+        deleteEntry = null;
+      }
+    }
+
     // Create a channel deletion embed
     const channelEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.red) // Using the color defined in config
@@ -52,6 +64,21 @@ export default defineEvent({
         iconURL: channel.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (deleteEntry?.executor) {
+      channelEmbed.addFields({
+        name: "Deleted By",
+        value: `<@${deleteEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (deleteEntry?.reason) {
+      channelEmbed.addFields({
+        name: "Reason",
+        value: deleteEntry.reason,
+      });
+    }
 
     // Try to send the channel deletion message to the aclevo-bot-logs channel
     try {

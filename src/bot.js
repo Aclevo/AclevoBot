@@ -129,6 +129,8 @@ class Bot {
         GatewayIntentBits.GuildWebhooks,
         GatewayIntentBits.GuildInvites,
         GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildEmojisAndStickers,
+        GatewayIntentBits.GuildScheduledEvents,
       ],
       partials: [
         Partials.Channel,
@@ -147,17 +149,17 @@ class Bot {
         messages: {
           interval: 900,
           lifetime: 300,
-          filter: () => true, // Keep all messages within lifetime
+          filter: () => () => true, // Keep all messages within lifetime
         },
         threads: {
           interval: 900,
           lifetime: 900,
-          filter: () => true, // Keep all threads within lifetime
+          filter: () => () => true, // Keep all threads within lifetime
         },
         users: {
           interval: 7200,
           lifetime: 1800,
-          filter: () => true, // Keep all users within lifetime
+          filter: () => () => true, // Keep all users within lifetime
         },
       },
     });
@@ -333,9 +335,12 @@ export default async function botInit(config) {
 
   try {
     verifyUtil("functions");
+    verifyUtil("auditLog");
     // Note: Database functionality has been removed
 
     bot.functions = new bot.utils.functions(bot);
+    bot.auditLog = new bot.utils.auditLog(bot);
+    bot.utils.auditLog = bot.auditLog;
     if (process.env.NO_LOGIN === "true") {
       bot.logger.warn("BOOTSTRAP", "NO_LOGIN=true; skipping Discord login.");
     } else {

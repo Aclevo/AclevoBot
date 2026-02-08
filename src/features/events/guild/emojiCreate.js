@@ -17,6 +17,18 @@ export default defineEvent({
       `Emoji created: ${emoji.name} in guild ${emoji.guild.name} (${emoji.guild.id})`,
     );
 
+    let createEntry = null;
+    if (bot.utils.auditLog) {
+      createEntry = await bot.utils.auditLog.fetchLatest(
+        emoji.guild,
+        "EmojiCreate",
+        emoji.id,
+      );
+      if (createEntry && Date.now() - createEntry.createdTimestamp > 10000) {
+        createEntry = null;
+      }
+    }
+
     // Create an emoji creation embed
     const emojiEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.green) // Green for creation
@@ -38,6 +50,21 @@ export default defineEvent({
         iconURL: emoji.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (createEntry?.executor) {
+      emojiEmbed.addFields({
+        name: "Created By",
+        value: `<@${createEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (createEntry?.reason) {
+      emojiEmbed.addFields({
+        name: "Reason",
+        value: createEntry.reason,
+      });
+    }
 
     // Try to send the emoji creation message to the aclevo-bot-logs channel
     try {

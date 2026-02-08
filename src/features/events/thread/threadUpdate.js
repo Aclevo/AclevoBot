@@ -23,6 +23,18 @@ export default defineEvent({
       `Thread updated: ${newThread.name} in guild ${guild.name} (${guild.id})`,
     );
 
+    let updateEntry = null;
+    if (bot.utils.auditLog) {
+      updateEntry = await bot.utils.auditLog.fetchLatest(
+        guild,
+        "ThreadUpdate",
+        newThread.id,
+      );
+      if (updateEntry && Date.now() - updateEntry.createdTimestamp > 10000) {
+        updateEntry = null;
+      }
+    }
+
     const embed = new EmbedBuilder()
       .setColor(bot.config.colors.yellow)
       .setTitle("Thread Updated")
@@ -42,6 +54,21 @@ export default defineEvent({
       })
       .setTimestamp();
 
+    if (updateEntry?.executor) {
+      embed.addFields({
+        name: "Updated By",
+        value: `<@${updateEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (updateEntry?.reason) {
+      embed.addFields({
+        name: "Reason",
+        value: updateEntry.reason,
+      });
+    }
+
     if (oldThread.name !== newThread.name) {
       embed.addFields(
         { name: "Old Name", value: oldThread.name, inline: true },
@@ -51,15 +78,31 @@ export default defineEvent({
 
     if (oldThread.archived !== newThread.archived) {
       embed.addFields(
-        { name: "Old Archived", value: oldThread.archived ? "Yes" : "No", inline: true },
-        { name: "New Archived", value: newThread.archived ? "Yes" : "No", inline: true },
+        {
+          name: "Old Archived",
+          value: oldThread.archived ? "Yes" : "No",
+          inline: true,
+        },
+        {
+          name: "New Archived",
+          value: newThread.archived ? "Yes" : "No",
+          inline: true,
+        },
       );
     }
 
     if (oldThread.locked !== newThread.locked) {
       embed.addFields(
-        { name: "Old Locked", value: oldThread.locked ? "Yes" : "No", inline: true },
-        { name: "New Locked", value: newThread.locked ? "Yes" : "No", inline: true },
+        {
+          name: "Old Locked",
+          value: oldThread.locked ? "Yes" : "No",
+          inline: true,
+        },
+        {
+          name: "New Locked",
+          value: newThread.locked ? "Yes" : "No",
+          inline: true,
+        },
       );
     }
 

@@ -32,6 +32,18 @@ export default defineEvent({
     const channelTypeName =
       channelTypeMap[channel.type] || "Unknown Channel Type";
 
+    let createEntry = null;
+    if (bot.utils.auditLog) {
+      createEntry = await bot.utils.auditLog.fetchLatest(
+        channel.guild,
+        "ChannelCreate",
+        channel.id,
+      );
+      if (createEntry && Date.now() - createEntry.createdTimestamp > 10000) {
+        createEntry = null;
+      }
+    }
+
     // Create a channel creation embed
     const channelEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.blue) // Using the color defined in config
@@ -52,6 +64,21 @@ export default defineEvent({
         iconURL: channel.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (createEntry?.executor) {
+      channelEmbed.addFields({
+        name: "Created By",
+        value: `<@${createEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (createEntry?.reason) {
+      channelEmbed.addFields({
+        name: "Reason",
+        value: createEntry.reason,
+      });
+    }
 
     // Try to send the channel creation message to the aclevo-bot-logs channel
     try {

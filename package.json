@@ -6,7 +6,8 @@
   "scripts": {
     "prod": "bun run --bun .",
     "debug": "bun run --bun --watch .",
-    "test": "echo \"Error: Not implemented\" && exit 1"
+    "test": "bun test",
+    "test:smoke": "bun test -t smoke"
   },
   "repository": {
     "type": "git",

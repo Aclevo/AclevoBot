@@ -18,6 +18,18 @@ export default defineEvent({
       `Thread created: ${thread.name} in guild ${guild.name} (${guild.id})`,
     );
 
+    let createEntry = null;
+    if (bot.utils.auditLog) {
+      createEntry = await bot.utils.auditLog.fetchLatest(
+        guild,
+        "ThreadCreate",
+        thread.id,
+      );
+      if (createEntry && Date.now() - createEntry.createdTimestamp > 10000) {
+        createEntry = null;
+      }
+    }
+
     const archiveDuration = thread.autoArchiveDuration
       ? `${thread.autoArchiveDuration} minutes`
       : "Unknown";
@@ -39,7 +51,11 @@ export default defineEvent({
           value: thread.ownerId ? `<@${thread.ownerId}>` : "Unknown",
           inline: true,
         },
-        { name: "Archived", value: thread.archived ? "Yes" : "No", inline: true },
+        {
+          name: "Archived",
+          value: thread.archived ? "Yes" : "No",
+          inline: true,
+        },
         { name: "Locked", value: thread.locked ? "Yes" : "No", inline: true },
         { name: "Auto-Archive", value: archiveDuration, inline: true },
       )
@@ -48,6 +64,21 @@ export default defineEvent({
         iconURL: guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (createEntry?.executor) {
+      threadEmbed.addFields({
+        name: "Created By",
+        value: `<@${createEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (createEntry?.reason) {
+      threadEmbed.addFields({
+        name: "Reason",
+        value: createEntry.reason,
+      });
+    }
 
     if (thread.createdTimestamp) {
       threadEmbed.addFields({

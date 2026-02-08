@@ -14,6 +14,17 @@ export default defineEvent({
     const formatDate = (date) =>
       date ? `<t:${Math.floor(date.getTime() / 1000)}:R>` : "Never";
 
+    let deleteEntry = null;
+    if (bot.utils.auditLog) {
+      deleteEntry = await bot.utils.auditLog.fetchLatest(
+        invite.guild,
+        "InviteDelete",
+      );
+      if (deleteEntry && Date.now() - deleteEntry.createdTimestamp > 10000) {
+        deleteEntry = null;
+      }
+    }
+
     const inviteEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.red)
       .setTitle("Invite Deleted")
@@ -38,6 +49,21 @@ export default defineEvent({
         iconURL: invite.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (deleteEntry?.executor) {
+      inviteEmbed.addFields({
+        name: "Deleted By",
+        value: `<@${deleteEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (deleteEntry?.reason) {
+      inviteEmbed.addFields({
+        name: "Reason",
+        value: deleteEntry.reason,
+      });
+    }
 
     try {
       const logChannel = bot.functions.getLogChannel(invite.guild);

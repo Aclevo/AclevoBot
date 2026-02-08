@@ -18,6 +18,20 @@ export default defineEvent({
       `Webhook updated in #${channel.name} (${channel.id}) in guild ${guild.name} (${guild.id})`,
     );
 
+    let updateEntry = null;
+    if (bot.utils.auditLog) {
+      updateEntry = await bot.utils.auditLog.fetchLatest(
+        guild,
+        "WebhookUpdate",
+      );
+      const isRecent =
+        updateEntry && Date.now() - updateEntry.createdTimestamp <= 10000;
+      const channelMatch = updateEntry?.extra?.channel?.id
+        ? updateEntry.extra.channel.id === channel.id
+        : true;
+      if (!isRecent || !channelMatch) updateEntry = null;
+    }
+
     const webhookEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.yellow)
       .setTitle("Webhook Updated")
@@ -31,6 +45,21 @@ export default defineEvent({
         iconURL: guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (updateEntry?.executor) {
+      webhookEmbed.addFields({
+        name: "Updated By",
+        value: `<@${updateEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (updateEntry?.reason) {
+      webhookEmbed.addFields({
+        name: "Reason",
+        value: updateEntry.reason,
+      });
+    }
 
     try {
       const logChannel = bot.functions.getLogChannel(guild);

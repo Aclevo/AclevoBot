@@ -11,6 +11,18 @@ export default defineEvent({
       `${ban.user.tag} was unbanned from ${ban.guild.name} (${ban.guild.id})`,
     );
 
+    let unbanEntry = null;
+    if (bot.utils.auditLog) {
+      unbanEntry = await bot.utils.auditLog.fetchLatest(
+        ban.guild,
+        "MemberBanRemove",
+        ban.user.id,
+      );
+      if (unbanEntry && Date.now() - unbanEntry.createdTimestamp > 10000) {
+        unbanEntry = null;
+      }
+    }
+
     const unbanEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.green)
       .setTitle("User Unbanned")
@@ -27,8 +39,17 @@ export default defineEvent({
       })
       .setTimestamp();
 
-    if (ban.reason) {
-      unbanEmbed.addFields({ name: "Reason", value: ban.reason });
+    if (unbanEntry?.executor) {
+      unbanEmbed.addFields({
+        name: "Unbanned By",
+        value: `<@${unbanEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    const reason = unbanEntry?.reason || ban.reason;
+    if (reason) {
+      unbanEmbed.addFields({ name: "Reason", value: reason });
     }
 
     try {

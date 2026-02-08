@@ -30,6 +30,18 @@ export default defineEvent({
         ? "None"
         : String(value);
 
+    let updateEntry = null;
+    if (bot.utils.auditLog) {
+      updateEntry = await bot.utils.auditLog.fetchLatest(
+        newChannel.guild,
+        "ChannelUpdate",
+        newChannel.id,
+      );
+      if (updateEntry && Date.now() - updateEntry.createdTimestamp > 10000) {
+        updateEntry = null;
+      }
+    }
+
     const updateEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.yellow)
       .setTitle("Channel Updated")
@@ -44,6 +56,21 @@ export default defineEvent({
         iconURL: newChannel.guild.iconURL({ dynamic: true }) || undefined,
       })
       .setTimestamp();
+
+    if (updateEntry?.executor) {
+      updateEmbed.addFields({
+        name: "Updated By",
+        value: `<@${updateEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    if (updateEntry?.reason) {
+      updateEmbed.addFields({
+        name: "Reason",
+        value: updateEntry.reason,
+      });
+    }
 
     if (oldChannel.name !== newChannel.name) {
       updateEmbed.addFields(

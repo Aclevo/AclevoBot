@@ -11,6 +11,18 @@ export default defineEvent({
       `${ban.user.tag} was banned from ${ban.guild.name} (${ban.guild.id})`,
     );
 
+    let banEntry = null;
+    if (bot.utils.auditLog) {
+      banEntry = await bot.utils.auditLog.fetchLatest(
+        ban.guild,
+        "MemberBanAdd",
+        ban.user.id,
+      );
+      if (banEntry && Date.now() - banEntry.createdTimestamp > 10000) {
+        banEntry = null;
+      }
+    }
+
     const banEmbed = new EmbedBuilder()
       .setColor(bot.config.colors.red)
       .setTitle("User Banned")
@@ -27,8 +39,17 @@ export default defineEvent({
       })
       .setTimestamp();
 
-    if (ban.reason) {
-      banEmbed.addFields({ name: "Reason", value: ban.reason });
+    if (banEntry?.executor) {
+      banEmbed.addFields({
+        name: "Banned By",
+        value: `<@${banEntry.executor.id}>`,
+        inline: true,
+      });
+    }
+
+    const reason = banEntry?.reason || ban.reason;
+    if (reason) {
+      banEmbed.addFields({ name: "Reason", value: reason });
     }
 
     try {
