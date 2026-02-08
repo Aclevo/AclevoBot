@@ -1,3 +1,4 @@
+import { EmbedBuilder } from "discord.js";
 import defineEvent from "../../../utils/defineEvent.js";
 
 export default defineEvent({
@@ -5,10 +6,80 @@ export default defineEvent({
   run: async (bot, params) => {
     const [oldRole, newRole] = params;
 
-    bot.logger.info("DISCORD", `Role updated: ${newRole.name} in guild ${newRole.guild.name} (${newRole.guild.id})`);
+    bot.logger.info(
+      "DISCORD",
+      `Role updated: ${newRole.name} in guild ${newRole.guild.name} (${newRole.guild.id})`,
+    );
 
-    // Could be extended to log role updates, etc.
-    // For now, just log the event
+    const updateEmbed = new EmbedBuilder()
+      .setColor(bot.config.colors.yellow)
+      .setTitle("Role Updated")
+      .setDescription(`A role was updated in ${newRole.guild.name}`)
+      .addFields(
+        { name: "Role", value: `<@&${newRole.id}>`, inline: true },
+        { name: "Role ID", value: newRole.id, inline: true },
+      )
+      .setFooter({
+        text: `Server: ${newRole.guild.name}`,
+        iconURL: newRole.guild.iconURL({ dynamic: true }) || undefined,
+      })
+      .setTimestamp();
 
+    if (oldRole.name !== newRole.name) {
+      updateEmbed.addFields(
+        { name: "Old Name", value: oldRole.name, inline: true },
+        { name: "New Name", value: newRole.name, inline: true },
+      );
+    }
+
+    if (oldRole.color !== newRole.color) {
+      updateEmbed.addFields(
+        { name: "Old Color", value: oldRole.hexColor, inline: true },
+        { name: "New Color", value: newRole.hexColor, inline: true },
+      );
+    }
+
+    if (oldRole.hoist !== newRole.hoist) {
+      updateEmbed.addFields(
+        {
+          name: "Old Hoist",
+          value: oldRole.hoist ? "Yes" : "No",
+          inline: true,
+        },
+        {
+          name: "New Hoist",
+          value: newRole.hoist ? "Yes" : "No",
+          inline: true,
+        },
+      );
+    }
+
+    if (oldRole.mentionable !== newRole.mentionable) {
+      updateEmbed.addFields(
+        {
+          name: "Old Mentionable",
+          value: oldRole.mentionable ? "Yes" : "No",
+          inline: true,
+        },
+        {
+          name: "New Mentionable",
+          value: newRole.mentionable ? "Yes" : "No",
+          inline: true,
+        },
+      );
+    }
+
+    try {
+      const logChannel = bot.functions.getLogChannel(newRole.guild);
+
+      if (logChannel) {
+        await logChannel.send({ embeds: [updateEmbed] });
+      }
+    } catch (error) {
+      bot.logger.warn(
+        "DISCORD",
+        `Could not send role update message: ${error.message}`,
+      );
+    }
   },
 });
