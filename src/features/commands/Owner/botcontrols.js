@@ -7,13 +7,15 @@ import {
   SlashCommandBuilder,
   ActionRowBuilder,
   ButtonBuilder,
+  PermissionFlagsBits,
 } from "discord.js";
+import { createShutdown } from "../../../utils/shutdown.js";
 
 const meta = () => {
   return new SlashCommandBuilder()
     .setName("botcontrols")
     .setDescription("Bot Control.")
-    .setDefaultMemberPermissions(0) // Only owner can use this
+    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages)
     .addStringOption((option) =>
       option
         .setName("action")
@@ -89,11 +91,27 @@ const execute = async (bot, interaction) => {
         if (type === "Restart") {
           // Restart logic would go here
           console.log("Restarting bot...");
-          // Note: Actual restart/shutdown logic would need to be implemented carefully
+          try {
+            await bot.client.destroy();
+            await bot.client.login(bot.config.discord.token);
+          } catch (error) {
+            console.error("Error restarting bot:", error);
+          }
         } else {
           // Shutdown logic would go here
           console.log("Shutting down bot...");
-          // Note: Actual shutdown logic would need to be implemented carefully
+          const shutdown = createShutdown({
+            logger: {
+              error: (...args) => bot.logger.error(...args),
+            },
+          });
+          await shutdown({
+            code: 0,
+            reason: "Owner requested shutdown via /botcontrols",
+            cleanup: async () => {
+              await bot.client.destroy();
+            },
+          });
         }
       } else if (i.customId === "disagree") {
         await i.update({

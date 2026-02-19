@@ -129,7 +129,7 @@ class Bot {
         GatewayIntentBits.GuildWebhooks,
         GatewayIntentBits.GuildInvites,
         GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildEmojisAndStickers,
+        GatewayIntentBits.GuildExpressions,
         GatewayIntentBits.GuildScheduledEvents,
       ],
       partials: [
