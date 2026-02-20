@@ -3,6 +3,8 @@
 ## Introduction
 This is the source code for AclevoBot. It is based on TheCodingBot v6_new.
 
+# Stay in touch with us! **[Join Our Discord](https://discord.gg/C6QVUKnJRq)** or **[Join our Matrix](https://matrix.to/#/#aclevo-general:matrix.org)**
+
 ## Warning
 Version 7 is not recommended for production use. Please use version 6 instead.
 
