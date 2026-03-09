@@ -15,6 +15,12 @@ export default defineEvent({
     // Skip if message is from a bot
     if (message.author.bot) return;
 
+    // Add function to auto-publish announcements
+    if (message.channel.name === "announcements") {
+      await message.crosspost();
+      return;
+    }
+
     // Handle bot mentions
     if (
       message.mentions.has(bot.client.user.id) &&
@@ -44,6 +50,5 @@ export default defineEvent({
       }
       return;
     }
-
   },
 });
