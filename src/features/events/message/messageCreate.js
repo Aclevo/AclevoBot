@@ -21,6 +21,36 @@ export default defineEvent({
       return;
     }
 
+    if (message.channel.name === "trashcan") {
+      // Disboard's Bot ID
+      if (message.author.id == "302050872383242240") {
+        await message.reply(
+          "Server bumped! A reminder will be sent in 2 hours.",
+        );
+        setTimeout(
+          () => {
+            const bumpEmbed = new EmbedBuilder()
+              .setColor(bot.config.colors.blue)
+              .setTitle("Bump")
+              .setDescription(
+                "It's time to bump the server! Do /bump to bump the server.",
+              )
+              .setFooter({
+                text: `Bumping the server helps keep it alive.`,
+              })
+              .setTimestamp();
+
+            const bumpRole = message.guild.roles.cache.find(
+              (role) => role.name === "Bumpers",
+            );
+            message.channel.send(`<@&${bumpRole.id}>`, { embeds: [bumpEmbed] });
+          },
+          1000 * 60 * 60 * 2,
+        );
+      }
+      return;
+    }
+
     // Handle bot mentions
     if (
       message.mentions.has(bot.client.user.id) &&
