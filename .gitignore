@@ -4,3 +4,4 @@ errors
 .env
 bun.lock
 package-lock.json
+.zed

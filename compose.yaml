@@ -1,0 +1,42 @@
+
+services:
+  # Normal development: install dependencies and edit files.
+  bun-dev:
+    image: docker.io/oven/bun:latest
+    working_dir: /work
+    command: ["sleep", "infinity"]
+    init: true
+    volumes:
+      - .:/work
+      - bun_modules:/work/node_modules
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2
+
+  # Restricted execution: no network, read-only project.
+  bun-sandbox:
+    image: docker.io/oven/bun:latest
+    working_dir: /work
+    command: ["sleep", "infinity"]
+    network_mode: none
+    read_only: true
+    init: true
+    volumes:
+      - .:/work:ro
+      - bun_modules:/work/node_modules:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
+
+volumes:
+  bun_modules:
