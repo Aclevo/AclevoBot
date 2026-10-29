@@ -20,6 +20,22 @@ const execute = async (bot, interaction) => {
     return `${days} days, ${hours % 24} hours, ${minutes % 60} minutes, ${seconds % 60} seconds`;
   };
 
+  // Measure memory for the main Bun process.
+  const memory = process.memoryUsage();
+  const mib = (bytes) => (bytes / 1024 / 1024).toFixed(2);
+
+  // Measure CPU over a real elapsed-time interval.
+  const cpuBefore = process.cpuUsage();
+  const startTime = performance.now();
+
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  const cpuDelta = process.cpuUsage(cpuBefore);
+  const elapsedMs = performance.now() - startTime;
+
+  const cpuPercent =
+    ((cpuDelta.user + cpuDelta.system) / (elapsedMs * 1000)) * 100;
+
   await interaction.reply({
     embeds: [
       {
@@ -62,9 +78,11 @@ const execute = async (bot, interaction) => {
             inline: true,
           },
           {
-            name: "Bot Memory Usage",
-            value: `${Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100} MiB`,
-            inline: true,
+                      name: "Bot Memory Usage",
+                      value:
+                        `RSS: ${mib(memory.rss)} MiB\n` +
+                        `JS Heap: ${mib(memory.heapUsed)} MiB`,
+                      inline: true,
           },
           {
             name: "Servers I'm In",
@@ -96,7 +114,7 @@ const execute = async (bot, interaction) => {
           },
           {
             name: "CPU Usage",
-            value: `${Math.round((process.cpuUsage().user / 1024 / 1024) * 100) / 100}%`,
+            value: `${cpuPercent.toFixed(2)}% of one core`,
             inline: true,
           },
         ],
